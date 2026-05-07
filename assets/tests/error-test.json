@@ -1,0 +1,8 @@
+{
+  "id": "abc",
+  "name": "MyWiFi",
+  "password": "1234",
+  "rating": 4.0,
+  "lat": 55.0,
+  "lng": 37.0
+}
