@@ -1,6 +1,7 @@
 // lib/views/screens/onboarding_screen.dart
 
 import 'package:flutter/material.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -81,7 +82,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   color: Colors.blue.shade700,
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.wifi_find, color: Colors.white, size: 56),
+                child: const Icon(Icons.wifi_find_rounded, color: Colors.white, size: 56),
               ),
 
               const SizedBox(height: 24),
@@ -135,7 +136,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                           child: CircularProgressIndicator(
                               strokeWidth: 2, color: Colors.white),
                         )
-                      : const Icon(Icons.cloud_download_outlined),
+                      : const FaIcon(FontAwesomeIcons.cloudArrowDown),
                   label: const Text('Загрузить демонстрационную базу'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color.fromARGB(255, 22, 160, 133),

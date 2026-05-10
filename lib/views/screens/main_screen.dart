@@ -1,27 +1,19 @@
 // lib/views/screens/main_screen.dart
-//
-// Исправления дефектов:
-//   Ошибка 1: Показываем AlertDialog при MapFiDataException вместо пустого экрана.
-//   Ошибка 2: focusOnPoint передаёт screenHeight и zoom — камера смещается
-//             чтобы маркер оказался выше шторки (метод в ViewModel).
-//   Ошибка 3: DraggableScrollableSheet получает PageStorageKey и
-//             DraggableScrollableController — шторка восстанавливает позицию
-//             при повороте экрана.
-// Добавлено: офлайн-кэширование тайлов через flutter_map_tile_caching.
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_map_animations/flutter_map_animations.dart';
 import 'package:flutter_map_tile_caching/flutter_map_tile_caching.dart'; 
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
-import '../../exceptions/mapfi_data_exception.dart';
 import '../../models/wifi_point.dart';
 import '../../services/sync_service.dart';
 import '../../viewmodels/map_viewmodel.dart';
 import '../widgets/wifi_marker_widget.dart';
-
+import '../../exceptions/data_exception.dart';
 
 
 class MainScreen extends StatefulWidget {
@@ -34,9 +26,7 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen>
     with TickerProviderStateMixin {
 
-  final _tileProvider = FMTCTileProvider(
-    stores: const {'mapStore': BrowseStoreStrategy.readUpdateCreate},
-  );
+  late final TileProvider _tileProvider;
 
   // Контроллер анимированной карты
   late AnimatedMapController _mapController;
@@ -61,6 +51,12 @@ class _MainScreenState extends State<MainScreen>
     super.initState();
     _mapController = AnimatedMapController(vsync: this);
 
+    if (kIsWeb) {
+      _tileProvider = NetworkTileProvider();
+    } else {
+      _tileProvider = FMTCTileProvider(stores: 
+      const {'mapStore': BrowseStoreStrategy.readUpdateCreate});
+    }
     // Передаём контроллер в ViewModel
     final viewModel = context.read<MapViewModel>();
     viewModel.mapController = _mapController;
@@ -111,19 +107,11 @@ class _MainScreenState extends State<MainScreen>
     );
   }
 
-  // ---------------------------------------------------------------------------
-  // Фокус на точке (Ошибка 2)
-  // ---------------------------------------------------------------------------
-
   void _focusOnPoint(WiFiPoint point) {
     setState(() => _selectedPoint = point);
     final screenHeight = MediaQuery.of(context).size.height;
     context.read<MapViewModel>().focusOnPoint(point, screenHeight, _currentZoom);
   }
-
-  // ---------------------------------------------------------------------------
-  // Синхронизация с GitHub
-  // ---------------------------------------------------------------------------
 
   Future<void> _synchronize() async {
     final viewModel = context.read<MapViewModel>();
@@ -133,14 +121,34 @@ class _MainScreenState extends State<MainScreen>
     switch (result.status) {
       case SyncStatus.notModified:
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('База данных актуальна.')),
+          const SnackBar(
+            content: Text('База данных актуальна.'),
+            behavior: SnackBarBehavior.floating,
+          ),
         );
+        break;
+
       case SyncStatus.newDataAvailable:
+        // Сначала спрашиваем пользователя через диалог
         _showSyncDialog(result, viewModel);
+        break;
+
       case SyncStatus.error:
+        // Формируем красивый текст ошибки
+        String errorMessage = result.errorMessage ?? 'Ошибка синхронизации';
+        
+        if (result.exception is DataException) {
+          errorMessage = 'Ошибка структуры файла: ${(result.exception as DataException).message}';
+        }
+
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(result.errorMessage ?? 'Ошибка синхронизации')),
+          SnackBar(
+            content: Text(errorMessage),
+            backgroundColor: Theme.of(context).colorScheme.error,
+            behavior: SnackBarBehavior.floating,
+          ),
         );
+        break;
     }
   }
 
@@ -193,10 +201,30 @@ class _MainScreenState extends State<MainScreen>
         ),
         actions: [
           TextButton(
+            style: TextButton.styleFrom(
+              shape: const RoundedRectangleBorder(
+                  borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(24),
+                  topRight: Radius.circular(12),
+                  bottomLeft: Radius.circular(24),
+                  bottomRight: Radius.circular(12)
+                    )
+                  )
+                ),
             onPressed: () => Navigator.of(ctx).pop(),
             child: const Text('Отмена'),
           ),
           FilledButton(
+            style: FilledButton.styleFrom(
+              shape: const RoundedRectangleBorder(
+                  borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(12),
+                  topRight: Radius.circular(24),
+                  bottomLeft: Radius.circular(12),
+                  bottomRight: Radius.circular(24)
+                    )
+                  )
+                ),
             onPressed: () async {
               await viewModel.syncService.setSyncUrl(controller.text.trim());
               if (ctx.mounted) Navigator.of(ctx).pop();
@@ -397,42 +425,76 @@ Future<void> _showAddPointDialog(MapViewModel viewModel) async {
             children: [
               // Поиск
               Expanded(
-                child: Material(
-                  elevation: 4,
-                  borderRadius: BorderRadius.circular(24),
-                  color: Colors.white,
-                  child: TextField(
-                    controller: _searchController,
-                    decoration: InputDecoration(
-                      hintText: 'Поиск сети…',
-                      prefixIcon: const Icon(Icons.search),
-                      suffixIcon: _searchController.text.isNotEmpty
-                          ? IconButton(
-                              icon: const Icon(Icons.clear),
-                              onPressed: () {
-                                _searchController.clear();
-                                viewModel.setSearchQuery('');
-                              },
-                            )
-                          : null,
-                      border: InputBorder.none,
-                      contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 12),
-                    ),
-                    onChanged: viewModel.setSearchQuery,
-                  ),
-                ),
+  child: Material(
+    elevation: 4,
+    borderRadius: const BorderRadius.only(
+      topLeft: Radius.circular(24),
+      topRight: Radius.circular(12),
+      bottomLeft: Radius.circular(24),
+      bottomRight: Radius.circular(12),
+    ),
+    color: Theme.of(context).colorScheme.surface,
+    child: TextField(
+      controller: _searchController,
+      style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+      decoration: InputDecoration(
+        hintText: 'Поиск сети',
+        hintStyle: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6)),
+        
+        prefixIcon: Padding(
+          padding: const EdgeInsets.only(left: 16.0, right: 12.0),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              FaIcon(
+                FontAwesomeIcons.magnifyingGlass,
+                size: 18, // Контролируем размер иконки
+                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.8),
               ),
+            ],
+          ),
+        ),
+        
+        // --- СУФФИКС (КНОПКА ОЧИСТКИ) ---
+        suffixIcon: _searchController.text.isNotEmpty
+            ? IconButton(
+                // Тоже оборачиваем в FaIcon с фиксированным размером
+                icon: FaIcon(
+                  FontAwesomeIcons.xmark, // В FA крестик обычно называется xmark (вместо cross)
+                  size: 16,
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
+                onPressed: () {
+                  _searchController.clear();
+                  viewModel.setSearchQuery('');
+                },
+              )
+            : null,
+        border: InputBorder.none,
+        
+        // Корректируем внутренние отступы самого текста, чтобы он стоял на одной линии с иконками
+        contentPadding: const EdgeInsets.symmetric(vertical: 14), 
+      ),
+      onChanged: viewModel.setSearchQuery,
+    ),
+  ),
+),
 
               const SizedBox(width: 8),
 
               // Меню отладки
               Material(
                 elevation: 4,
-                borderRadius: BorderRadius.circular(24),
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(12),
+                  topRight: Radius.circular(24),
+                  bottomLeft: Radius.circular(12),
+                  bottomRight: Radius.circular(24)
+                  ),
                 color: Colors.white,
                 child: PopupMenuButton<String>(
-                  icon: const Icon(Icons.more_vert),
+                  icon: const FaIcon(FontAwesomeIcons.ellipsisVertical, size: 18,),
                   tooltip: 'Меню',
                   onSelected: (value) async {
                     switch (value) {
@@ -460,7 +522,7 @@ Future<void> _showAddPointDialog(MapViewModel viewModel) async {
                     const PopupMenuItem(
                       value: "add", 
                       child: ListTile(
-                        leading: Icon(Icons.add),
+                        leading: FaIcon(FontAwesomeIcons.plus),
                         title: Text("Добавить точку"),
                         contentPadding: EdgeInsets.zero,
                         dense: true,
@@ -470,7 +532,7 @@ Future<void> _showAddPointDialog(MapViewModel viewModel) async {
                     const PopupMenuItem(
                       value: 'import',
                       child: ListTile(
-                        leading: Icon(Icons.file_open_outlined),
+                        leading: FaIcon(FontAwesomeIcons.folderOpen),
                         title: Text('Импорт данных'),
                         contentPadding: EdgeInsets.zero,
                         dense: true,
@@ -479,7 +541,7 @@ Future<void> _showAddPointDialog(MapViewModel viewModel) async {
                     const PopupMenuItem(
                       value: 'export',
                       child: ListTile(
-                        leading: Icon(Icons.file_download_outlined),
+                        leading: FaIcon(FontAwesomeIcons.download),
                         title: Text('Экспорт данных'),
                         contentPadding: EdgeInsets.zero,
                         dense: true,
@@ -489,7 +551,7 @@ Future<void> _showAddPointDialog(MapViewModel viewModel) async {
                     const PopupMenuItem(
                       value: 'sync_url',
                       child: ListTile(
-                        leading: Icon(Icons.link),
+                        leading: FaIcon(FontAwesomeIcons.link),
                         title: Text('URL репозитория'),
                         contentPadding: EdgeInsets.zero,
                         dense: true,
@@ -498,7 +560,7 @@ Future<void> _showAddPointDialog(MapViewModel viewModel) async {
                     const PopupMenuItem(
                       value: 'sync',
                       child: ListTile(
-                        leading: Icon(Icons.sync),
+                        leading: FaIcon(FontAwesomeIcons.rotate),
                         title: Text('Синхронизировать'),
                         contentPadding: EdgeInsets.zero,
                         dense: true,
@@ -508,7 +570,7 @@ Future<void> _showAddPointDialog(MapViewModel viewModel) async {
                     const PopupMenuItem(
                       value: 'location',
                       child: ListTile(
-                        leading: Icon(Icons.my_location),
+                        leading: FaIcon(FontAwesomeIcons.locationCrosshairs),
                         title: Text('Обновить местоположение'),
                         contentPadding: EdgeInsets.zero,
                         dense: true,
@@ -529,6 +591,9 @@ Future<void> _showAddPointDialog(MapViewModel viewModel) async {
   // ---------------------------------------------------------------------------
 
   Widget _buildBottomSheet(MapViewModel viewModel) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+
     return DraggableScrollableSheet(
       key: _sheetKey,
       controller: _sheetController,
@@ -539,20 +604,19 @@ Future<void> _showAddPointDialog(MapViewModel viewModel) async {
       snapSizes: const [0.12, 0.3, 0.6, 0.85],
       builder: (context, scrollController) {
         return Material(
-          elevation: 8,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-          color: Colors.white,
+          elevation: 10,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+          color: colors.surface,
           child: SafeArea(
             top: false, 
             child: Column(
               children: [
                 // Ручка
-                _buildSheetHandle(),
+                //_buildSheetHandle(),
 
                 // Сортировка
-                _buildSortRow(viewModel),
-
-                const Divider(height: 1),
+                
+                 _buildSortRow(viewModel),
 
                 // Список точек
                 Expanded(
@@ -575,66 +639,97 @@ Future<void> _showAddPointDialog(MapViewModel viewModel) async {
     );
   }
 
-  Widget _buildSheetHandle() {
-    return Container(
-      width: 40,
-      height: 4,
-      margin: const EdgeInsets.symmetric(vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.grey.shade300,
-        borderRadius: BorderRadius.circular(2),
-      ),
-    );
-  }
-
   Widget _buildSortRow(MapViewModel viewModel) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      child: Row(
-        children: [
-          Text(
-            'Точек: ${viewModel.points.length}',
-            style: const TextStyle(
-                fontWeight: FontWeight.w600, color: Colors.black54),
-          ),
-          const Spacer(),
-          const Text('Сортировка: '),
-          DropdownButton<SortType>(
-            value: viewModel.currentSort,
-            underline: const SizedBox(),
-            isDense: true,
-            items: const [
-              DropdownMenuItem(
-                  value: SortType.name, child: Text('А → Я')),
-              DropdownMenuItem(
-                  value: SortType.ratingTop, child: Text('Лучшие')),
-              DropdownMenuItem(
-                  value: SortType.ratingBottom, child: Text('Худшие')),
-            ],
-            onChanged: (value) {
-              if (value != null) viewModel.changeSort(value);
-            },
-          ),
-        ],
-      ),
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+
+    final textStyle = theme.textTheme.bodyMedium?.copyWith(
+      color: colors.onSurface.withOpacity(0.9),
+      fontWeight: FontWeight.w500,
+      fontSize: 14,
     );
-  }
+
+    return Container(
+    // Делаем мягкое визуальное отделение шапки шторки (чуть темнее основного surface)
+    decoration: BoxDecoration(
+      color: Color.alphaBlend(colors.surface, Colors.black38), 
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+    ),
+    padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          children: [
+            // Теперь количество точек красится динамически под тему!
+            Text(
+              'Точек: ${viewModel.points.length}',
+              style: textStyle?.copyWith(
+                fontWeight: FontWeight.w600,
+                color: colors.onSurface, // Больше никакого черного Colors.black54!
+              ),
+            ),
+            const Spacer(),
+            
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: colors.onSurface.withOpacity(0.08), 
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: DropdownButton<SortType>(
+                value: viewModel.currentSort,
+                underline: const SizedBox(), // Прячем линию
+                isDense: true,
+                borderRadius: BorderRadius.circular(16), 
+                dropdownColor: colors.surface, // Фоновый цвет всплывашки
+                iconEnabledColor: colors.onSurface.withOpacity(0.8),
+                style: textStyle?.copyWith(fontWeight: FontWeight.w600),
+                
+                icon: const Padding(
+                  padding: EdgeInsets.only(left: 8),
+                  child: FaIcon(
+                    FontAwesomeIcons.sort,
+                    size: 12,
+                    fontWeight: FontWeight.w600,
+                    //color: colors.onSurface.withOpacity(0.7),
+                  ),
+                ),
+                items: const [
+                  DropdownMenuItem(value: SortType.nameTop, child: Text('от А до Я')),
+                  DropdownMenuItem(value: SortType.nameBottom, child: Text('от Я до A')),
+                  DropdownMenuItem(value: SortType.ratingTop, child: Text('Сначала Лучшие')),
+                  DropdownMenuItem(value: SortType.ratingBottom, child: Text('Сначала Худшие')),
+                ],
+                onChanged: (value) {
+                  if (value != null) viewModel.changeSort(value);
+                },
+              ),
+            ),
+          ],
+        ),
+      ],
+    ),
+  );
+}
 
   Widget _buildPointTile(WiFiPoint point, MapViewModel viewModel) {
     final isSelected = point == _selectedPoint;
+    final theme = Theme.of(context);
+
     return ListTile(
       selected: isSelected,
-      selectedTileColor: Colors.blue.shade50,
+      selectedTileColor: theme.colorScheme.primary.withOpacity(0.2),
       leading: Container(
         width: 40,
         height: 40,
         decoration: BoxDecoration(
-          color: isSelected ? const Color.fromARGB(255, 22, 160, 133) : const Color.fromARGB(255, 182, 209, 203),
+          color: isSelected ? theme.colorScheme.primary : theme.colorScheme.primary.withOpacity(0.2),
           shape: BoxShape.circle,
         ),
         child: Icon(
-          point.password.isEmpty ? Icons.wifi_tethering : Icons.wifi,
-          color: isSelected ? Colors.white : const Color.fromARGB(255, 22, 160, 133),
+          point.password.isEmpty ? Icons.wifi_tethering_rounded : Icons.wifi_rounded,
+          color: isSelected ? theme.colorScheme.surface : theme.colorScheme.primary,
           size: 20,
         ),
       ),
@@ -645,14 +740,12 @@ Future<void> _showAddPointDialog(MapViewModel viewModel) async {
         overflow: TextOverflow.ellipsis,
       ),
       subtitle: Text(
-        'Пароль: ${point.password.isEmpty ? '(открытая)' : point.password}'
-        //' • ★ ${point.rating.toStringAsFixed(1)}'
-        ,
+        point.password.isEmpty ? 'Публичная' : 'Пароль: ${point.password}',
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),
       trailing: PopupMenuButton<String>(
-        icon: const Icon(Icons.chevron_right_outlined, size: 20),
+        icon: const FaIcon(FontAwesomeIcons.chevronRight, size: 20),
         itemBuilder: (_) => [
           const PopupMenuItem(
             value: 'verify',
@@ -682,7 +775,7 @@ Future<void> _showAddPointDialog(MapViewModel viewModel) async {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.wifi_off, size: 56, color: Colors.grey.shade300),
+          Icon(Icons.wifi_off_rounded, size: 56, color: Colors.grey.shade300),
           const SizedBox(height: 12),
           Text(
             viewModel.isFileLoaded
@@ -693,7 +786,7 @@ Future<void> _showAddPointDialog(MapViewModel viewModel) async {
           const SizedBox(height: 8),
           if (!viewModel.isFileLoaded)
             TextButton.icon(
-              icon: const Icon(Icons.file_open_outlined),
+              icon: const FaIcon(FontAwesomeIcons.file),
               label: const Text('Импортировать файл'),
               onPressed: viewModel.pickAndLoadDatabase,
             ),

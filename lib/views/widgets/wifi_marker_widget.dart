@@ -20,7 +20,7 @@ class WiFiMarkerWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = isHighlighted ? Colors.amber : const Color.fromARGB(255, 22, 160, 133);
+    final color = isHighlighted ? const Color.fromARGB(255, 255, 194, 10) : const Color.fromARGB(255, 22, 160, 133);
   
     return Transform.rotate(
       angle: rotation, 
@@ -44,7 +44,7 @@ class WiFiMarkerWidget extends StatelessWidget {
                   ),
                 ],
               ),
-              child: Icon(point.password.isEmpty ? Icons.wifi_tethering : Icons.wifi, color: Colors.white, size: 20),
+              child: Icon(point.password.isEmpty ? Icons.wifi_tethering_rounded : Icons.wifi_rounded, color: Colors.white, size: 20),
             ),
 
           // Подпись

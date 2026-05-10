@@ -3,7 +3,7 @@ description: MapFi - Your Backup Plan
 
 publish_to: 'none'
 
-version: 1.0.0+5
+version: 1.0.1+0
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -37,10 +37,12 @@ dependencies:
   http: ^1.2.1
   
   uuid: ^4.5.1
-  cupertino_icons: ^1.0.6
+  
   network_info_plus: ^7.0.0
   flutter_map_tile_caching: ^10.0.0
   flutter_launcher_icons: ^0.14.4
+  font_awesome_flutter: ^11.0.0
+  google_fonts: ^8.1.0
 
 dev_dependencies:
   flutter_test:
