@@ -1,13 +1,12 @@
 // lib/main.dart
 
 import 'package:flutter/material.dart';
+import 'package:mapfi/views/screens/splash_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_map_tile_caching/flutter_map_tile_caching.dart';
 
 import 'viewmodels/map_viewmodel.dart';
-import 'views/screens/main_screen.dart';
-import 'views/screens/onboarding_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -35,7 +34,7 @@ class MapFiApp extends StatelessWidget {
         title: 'MapFi',
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
-          colorSchemeSeed: const Color.fromARGB(255, 22, 160, 133),
+          colorSchemeSeed: const Color(0xFF16A085),
           useMaterial3: true,
           appBarTheme: const AppBarTheme(
             backgroundColor: Colors.transparent,
@@ -43,9 +42,7 @@ class MapFiApp extends StatelessWidget {
             foregroundColor: Colors.black87,
           ),
         ),
-        home: showOnboarding
-            ? const OnboardingScreen()
-            : const MainScreen(),
+        home: SplashScreen(showOnboarding: showOnboarding)
       ),
     );
   }
