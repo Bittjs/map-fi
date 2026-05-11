@@ -2,6 +2,7 @@
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:mapfi/views/screens/splash_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_map_tile_caching/flutter_map_tile_caching.dart';
@@ -45,9 +46,7 @@ class MapFiApp extends StatelessWidget {
         
         theme: AppTheme.build(colorScheme),
         
-        home: showOnboarding
-            ? const OnboardingScreen()
-            : const MainScreen(),
+         home: SplashScreen(showOnboarding: showOnboarding)
       ),
     );
   }
