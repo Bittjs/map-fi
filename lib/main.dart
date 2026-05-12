@@ -8,8 +8,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_map_tile_caching/flutter_map_tile_caching.dart';
 
 import 'viewmodels/map_viewmodel.dart';
-import 'views/screens/main_screen.dart';
-import 'views/screens/onboarding_screen.dart';
 import './app_theme.dart';
 
 Future<void> main() async {

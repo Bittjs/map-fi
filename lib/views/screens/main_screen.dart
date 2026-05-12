@@ -414,6 +414,8 @@ Future<void> _showAddPointDialog(MapViewModel viewModel) async {
   // ---------------------------------------------------------------------------
 
   Widget _buildTopBar(MapViewModel viewModel) {
+    final theme = Theme.of(context);
+
     return Positioned(
       top: 0,
       left: 0,
@@ -433,13 +435,13 @@ Future<void> _showAddPointDialog(MapViewModel viewModel) async {
       bottomLeft: Radius.circular(24),
       bottomRight: Radius.circular(12),
     ),
-    color: Theme.of(context).colorScheme.surface,
+    color: theme.colorScheme.surface,
     child: TextField(
       controller: _searchController,
-      style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+      style: TextStyle(color: theme.colorScheme.onSurface),
       decoration: InputDecoration(
         hintText: 'Поиск сети',
-        hintStyle: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6)),
+        hintStyle: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.6)),
         
         prefixIcon: Padding(
           padding: const EdgeInsets.only(left: 16.0, right: 12.0),
@@ -449,37 +451,35 @@ Future<void> _showAddPointDialog(MapViewModel viewModel) async {
             children: [
               FaIcon(
                 FontAwesomeIcons.magnifyingGlass,
-                size: 18, // Контролируем размер иконки
-                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.8),
+                size: 18,
+                color: theme.colorScheme.onSurface.withOpacity(0.8),
               ),
             ],
           ),
         ),
-        
-        // --- СУФФИКС (КНОПКА ОЧИСТКИ) ---
-        suffixIcon: _searchController.text.isNotEmpty
-            ? IconButton(
-                // Тоже оборачиваем в FaIcon с фиксированным размером
-                icon: FaIcon(
-                  FontAwesomeIcons.xmark, // В FA крестик обычно называется xmark (вместо cross)
-                  size: 16,
-                  color: Theme.of(context).colorScheme.onSurface,
+                      
+                      // --- СУФФИКС (КНОПКА ОЧИСТКИ) ---
+                      suffixIcon: _searchController.text.isNotEmpty
+                          ? IconButton(
+                              icon: FaIcon(
+                                FontAwesomeIcons.xmark,
+                                size: 16,
+                                color: Theme.of(context).colorScheme.onSurface,
+                              ),
+                              onPressed: () {
+                                _searchController.clear();
+                                viewModel.setSearchQuery('');
+                              },
+                            )
+                          : null,
+                      border: InputBorder.none,
+                      
+                      contentPadding: const EdgeInsets.symmetric(vertical: 14), 
+                    ),
+                    onChanged: viewModel.setSearchQuery,
+                  ),
                 ),
-                onPressed: () {
-                  _searchController.clear();
-                  viewModel.setSearchQuery('');
-                },
-              )
-            : null,
-        border: InputBorder.none,
-        
-        // Корректируем внутренние отступы самого текста, чтобы он стоял на одной линии с иконками
-        contentPadding: const EdgeInsets.symmetric(vertical: 14), 
-      ),
-      onChanged: viewModel.setSearchQuery,
-    ),
-  ),
-),
+              ),
 
               const SizedBox(width: 8),
 
@@ -492,7 +492,7 @@ Future<void> _showAddPointDialog(MapViewModel viewModel) async {
                   bottomLeft: Radius.circular(12),
                   bottomRight: Radius.circular(24)
                   ),
-                color: Colors.white,
+                color: theme.colorScheme.surface,
                 child: PopupMenuButton<String>(
                   icon: const FaIcon(FontAwesomeIcons.ellipsisVertical, size: 18,),
                   tooltip: 'Меню',
@@ -650,7 +650,6 @@ Future<void> _showAddPointDialog(MapViewModel viewModel) async {
     );
 
     return Container(
-    // Делаем мягкое визуальное отделение шапки шторки (чуть темнее основного surface)
     decoration: BoxDecoration(
       color: Color.alphaBlend(colors.surface, Colors.black38), 
       borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
@@ -692,7 +691,6 @@ Future<void> _showAddPointDialog(MapViewModel viewModel) async {
                     FontAwesomeIcons.sort,
                     size: 12,
                     fontWeight: FontWeight.w600,
-                    //color: colors.onSurface.withOpacity(0.7),
                   ),
                 ),
                 items: const [
