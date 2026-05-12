@@ -600,10 +600,15 @@ Future<void> _showAddPointDialog(MapViewModel viewModel) async {
       initialChildSize: 0.3,
       minChildSize: 0.12,
       maxChildSize: 0.85,
-      snap: true,
-      snapSizes: const [0.12, 0.3, 0.6, 0.85],
+      snap: false,
       builder: (context, scrollController) {
-        return Material(
+        return GestureDetector(
+        onVerticalDragUpdate: (details) {
+          final newSize =
+              _sheetController.size - details.primaryDelta! / MediaQuery.of(context).size.height;
+          _sheetController.jumpTo(newSize.clamp(0.12, 0.85));
+        },
+        child: Material(
           elevation: 10,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
           color: colors.surface,
@@ -622,7 +627,13 @@ Future<void> _showAddPointDialog(MapViewModel viewModel) async {
                 Expanded(
                   child: viewModel.points.isEmpty
                       ? _buildEmptyState(viewModel)
-                      : ListView.builder(
+                      : Scrollbar(
+                          controller: scrollController,
+                          thumbVisibility: false,
+                          thickness: 6,
+                          radius: const Radius.circular(12),
+                          interactive: true,
+                          child: ListView.builder(
                           controller: scrollController,
                           itemCount: viewModel.points.length,
                           itemBuilder: (context, index) {
@@ -630,10 +641,12 @@ Future<void> _showAddPointDialog(MapViewModel viewModel) async {
                             return _buildPointTile(point, viewModel);
                           },
                         ),
+                      ),
                 ),
               ],
             ),
           )
+        )
         );
       },
     );
