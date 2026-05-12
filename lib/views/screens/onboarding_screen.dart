@@ -65,6 +65,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+
     return Scaffold(
       body: SafeArea(
         child: Padding(
@@ -79,7 +81,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 width: 100,
                 height: 100,
                 decoration: BoxDecoration(
-                  color: Colors.blue.shade700,
+                  color: colors.primary,
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(Icons.wifi_find_rounded, color: Colors.white, size: 56),
@@ -98,14 +100,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
               const SizedBox(height: 12),
 
-              Text(
+              const Text(
                 'Офлайн-карта точек Wi-Fi. Импортируйте базу из файла '
-                'или загрузите демонстрационные данные прямо сейчас.',
-                style: Theme.of(context)
-                    .textTheme
-                    .bodyMedium
-                    ?.copyWith(color: Colors.black54),
-                textAlign: TextAlign.center,
+                'или загрузите демонстрационные данные прямо сейчас.', 
               ),
 
               const Spacer(),
@@ -117,8 +114,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: _statusMessage!.startsWith('Ошибка')
-                        ? Colors.red
-                        : Colors.green.shade700,
+                        ? colors.error
+                        : colors.primary,
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -130,17 +127,17 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 child: ElevatedButton.icon(
                   onPressed: _isDownloading ? null : _downloadDemo,
                   icon: _isDownloading
-                      ? const SizedBox(
+                      ? SizedBox(
                           width: 18,
                           height: 18,
                           child: CircularProgressIndicator(
-                              strokeWidth: 2, color: Colors.white),
+                              strokeWidth: 2, color: colors.surface),
                         )
                       : const FaIcon(FontAwesomeIcons.cloudArrowDown),
                   label: const Text('Загрузить демонстрационную базу'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color.fromARGB(255, 22, 160, 133),
-                    foregroundColor: Colors.white,
+                    backgroundColor: colors.primary,
+                    foregroundColor: colors.onPrimary,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12)),

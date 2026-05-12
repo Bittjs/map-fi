@@ -51,7 +51,7 @@ class _SplashScreenState extends State<SplashScreen>
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     const double iconSize = 140;
-
+    
     return Scaffold(
       backgroundColor: colors.surface,
       body: Center(
@@ -67,7 +67,7 @@ class _SplashScreenState extends State<SplashScreen>
                   size: iconSize,
                   color: colors.onSurface.withOpacity(0.18),
                 ),
-                
+
                 ClipRect(
                   child: Align(
                     alignment: Alignment.bottomCenter,

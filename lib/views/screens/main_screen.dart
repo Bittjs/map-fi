@@ -31,8 +31,6 @@ class _MainScreenState extends State<MainScreen>
   // Контроллер анимированной карты
   late AnimatedMapController _mapController;
 
-  // ---- Исправление Ошибки 3: PageStorageKey + DraggableScrollableController --
-  final _sheetKey = const PageStorageKey<String>('bottom_sheet');
   final _sheetController = DraggableScrollableController();
 
   // Текущий зум (для расчёта смещения)
@@ -108,9 +106,17 @@ class _MainScreenState extends State<MainScreen>
   }
 
   void _focusOnPoint(WiFiPoint point) {
-    setState(() => _selectedPoint = point);
+    setState(() {
+      if (_selectedPoint == point) {
+        _selectedPoint = null;
+      } else {
+        _selectedPoint = point;
+      }
+    });
+
+    if (_selectedPoint != null){
     final screenHeight = MediaQuery.of(context).size.height;
-    context.read<MapViewModel>().focusOnPoint(point, screenHeight, _currentZoom);
+    context.read<MapViewModel>().focusOnPoint(point, screenHeight, _currentZoom);}
   }
 
   Future<void> _synchronize() async {
@@ -417,6 +423,7 @@ Future<void> _showAddPointDialog(MapViewModel viewModel) async {
 
   Widget _buildTopBar(MapViewModel viewModel) {
     final theme = Theme.of(context);
+    const menuIconSize = 18.0;
 
     return Positioned(
       top: 0,
@@ -484,15 +491,12 @@ Future<void> _showAddPointDialog(MapViewModel viewModel) async {
               ),
 
               const SizedBox(width: 8),
-
               // Меню отладки
               Material(
                 elevation: 4,
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(12),
-                  topRight: Radius.circular(24),
-                  bottomLeft: Radius.circular(12),
-                  bottomRight: Radius.circular(24)
+                borderRadius: const BorderRadius.horizontal(
+                  left: Radius.circular(12),
+                  right: Radius.circular(24),
                   ),
                 color: theme.colorScheme.surface,
                 child: PopupMenuButton<String>(
@@ -521,59 +525,59 @@ Future<void> _showAddPointDialog(MapViewModel viewModel) async {
                     }
                   },
                   itemBuilder: (_) => [
-                    const PopupMenuItem(
+                    PopupMenuItem(
                       value: "add", 
                       child: ListTile(
-                        leading: FaIcon(FontAwesomeIcons.plus),
-                        title: Text("Добавить точку"),
+                        leading: const FaIcon(FontAwesomeIcons.plus, size: menuIconSize,),
+                        title: Text("Добавить точку", style: TextStyle(color: theme.colorScheme.onSurface, fontWeight: FontWeight.w500, fontSize: menuIconSize),),
                         contentPadding: EdgeInsets.zero,
                         dense: true,
                       ),
                     ),
-                    const PopupMenuDivider(),
-                    const PopupMenuItem(
+                    //const PopupMenuDivider(),
+                    PopupMenuItem(
                       value: 'import',
                       child: ListTile(
-                        leading: FaIcon(FontAwesomeIcons.folderOpen),
-                        title: Text('Импорт данных'),
+                        leading: const FaIcon(FontAwesomeIcons.folderOpen, size: menuIconSize),
+                        title: Text('Импорт данных', style: TextStyle(color: theme.colorScheme.onSurface, fontWeight: FontWeight.w500, fontSize: menuIconSize),),
                         contentPadding: EdgeInsets.zero,
                         dense: true,
                       ),
                     ),
-                    const PopupMenuItem(
+                    PopupMenuItem(
                       value: 'export',
                       child: ListTile(
-                        leading: FaIcon(FontAwesomeIcons.download),
-                        title: Text('Экспорт данных'),
+                        leading: const FaIcon(FontAwesomeIcons.download, size: menuIconSize),
+                        title: Text('Экспорт данных', style: TextStyle(color: theme.colorScheme.onSurface, fontWeight: FontWeight.w500, fontSize: menuIconSize),),
                         contentPadding: EdgeInsets.zero,
                         dense: true,
                       ),
                     ),
-                    const PopupMenuDivider(),
-                    const PopupMenuItem(
+                    //const PopupMenuDivider(),
+                    PopupMenuItem(
                       value: 'sync_url',
                       child: ListTile(
-                        leading: FaIcon(FontAwesomeIcons.link),
-                        title: Text('URL репозитория'),
+                        leading: const FaIcon(FontAwesomeIcons.link, size: menuIconSize),
+                        title: Text('URL репозитория', style: TextStyle(color: theme.colorScheme.onSurface, fontWeight: FontWeight.w500, fontSize: menuIconSize),),
                         contentPadding: EdgeInsets.zero,
                         dense: true,
                       ),
                     ),
-                    const PopupMenuItem(
+                    PopupMenuItem(
                       value: 'sync',
                       child: ListTile(
-                        leading: FaIcon(FontAwesomeIcons.rotate),
-                        title: Text('Синхронизировать'),
+                        leading: const FaIcon(FontAwesomeIcons.rotate, size: menuIconSize),
+                        title: Text('Синхронизировать', style: TextStyle(color: theme.colorScheme.onSurface, fontWeight: FontWeight.w500, fontSize: menuIconSize),),
                         contentPadding: EdgeInsets.zero,
                         dense: true,
                       ),
                     ),
-                    const PopupMenuDivider(),
-                    const PopupMenuItem(
+                    //const PopupMenuDivider(),
+                    PopupMenuItem(
                       value: 'location',
                       child: ListTile(
-                        leading: FaIcon(FontAwesomeIcons.locationCrosshairs),
-                        title: Text('Обновить местоположение'),
+                        leading: const FaIcon(FontAwesomeIcons.locationCrosshairs, size: menuIconSize),
+                        title: Text('Обновить местоположение', style: TextStyle(color: theme.colorScheme.onSurface, fontWeight: FontWeight.w500, fontSize: menuIconSize),),
                         contentPadding: EdgeInsets.zero,
                         dense: true,
                       ),
@@ -587,8 +591,4 @@ Future<void> _showAddPointDialog(MapViewModel viewModel) async {
       ),
     );
   }
-
-  // ---------------------------------------------------------------------------
-  // Нижняя шторка (исправление Ошибки 3: PageStorageKey)
-  // ---------------------------------------------------------------------------
 }
