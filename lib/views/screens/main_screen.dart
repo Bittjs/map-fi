@@ -14,7 +14,7 @@ import '../../services/sync_service.dart';
 import '../../viewmodels/map_viewmodel.dart';
 import '../widgets/wifi_marker_widget.dart';
 import '../../exceptions/data_exception.dart';
-
+import '../widgets/bottom_sheet_widget.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -314,9 +314,12 @@ Future<void> _showAddPointDialog(MapViewModel viewModel) async {
               _buildTopBar(viewModel),
 
               // ---- Нижняя шторка -------------------------------------------
-              _buildBottomSheet(viewModel),
+              WiFiBottomSheet(
+                controller: _sheetController,
+                selectedPoint: _selectedPoint,
+                onPointTap: _focusOnPoint,
+              ),
 
-              // ---- Индикатор загрузки --------------------------------------
               if (viewModel.isLoading)
                 const Positioned(
                   top: 80,
@@ -330,7 +333,6 @@ Future<void> _showAddPointDialog(MapViewModel viewModel) async {
       ),
     );
   }
-
   // ---------------------------------------------------------------------------
   // Карта с кешированием тайлов
   // ---------------------------------------------------------------------------
@@ -441,7 +443,7 @@ Future<void> _showAddPointDialog(MapViewModel viewModel) async {
       style: TextStyle(color: theme.colorScheme.onSurface),
       decoration: InputDecoration(
         hintText: 'Поиск сети',
-        hintStyle: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.6)),
+        hintStyle: TextStyle(color: theme.colorScheme.onSurface),
         
         prefixIcon: Padding(
           padding: const EdgeInsets.only(left: 16.0, right: 12.0),
@@ -589,220 +591,4 @@ Future<void> _showAddPointDialog(MapViewModel viewModel) async {
   // ---------------------------------------------------------------------------
   // Нижняя шторка (исправление Ошибки 3: PageStorageKey)
   // ---------------------------------------------------------------------------
-
-  Widget _buildBottomSheet(MapViewModel viewModel) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-
-    return DraggableScrollableSheet(
-      key: _sheetKey,
-      controller: _sheetController,
-      initialChildSize: 0.3,
-      minChildSize: 0.12,
-      maxChildSize: 0.85,
-      snap: false,
-      builder: (context, scrollController) {
-        return GestureDetector(
-        onVerticalDragUpdate: (details) {
-          final newSize =
-              _sheetController.size - details.primaryDelta! / MediaQuery.of(context).size.height;
-          _sheetController.jumpTo(newSize.clamp(0.12, 0.85));
-        },
-        child: Material(
-          elevation: 10,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-          color: colors.surface,
-          child: SafeArea(
-            top: false, 
-            child: Column(
-              children: [
-                // Ручка
-                //_buildSheetHandle(),
-
-                // Сортировка
-                
-                 _buildSortRow(viewModel),
-
-                // Список точек
-                Expanded(
-                  child: viewModel.points.isEmpty
-                      ? _buildEmptyState(viewModel)
-                      : Scrollbar(
-                          controller: scrollController,
-                          thumbVisibility: false,
-                          thickness: 6,
-                          radius: const Radius.circular(12),
-                          interactive: true,
-                          child: ListView.builder(
-                          controller: scrollController,
-                          itemCount: viewModel.points.length,
-                          itemBuilder: (context, index) {
-                            final point = viewModel.points[index];
-                            return _buildPointTile(point, viewModel);
-                          },
-                        ),
-                      ),
-                ),
-              ],
-            ),
-          )
-        )
-        );
-      },
-    );
-  }
-
-  Widget _buildSortRow(MapViewModel viewModel) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-
-    final textStyle = theme.textTheme.bodyMedium?.copyWith(
-      color: colors.onSurface.withOpacity(0.9),
-      fontWeight: FontWeight.w500,
-      fontSize: 14,
-    );
-
-    return Container(
-    decoration: BoxDecoration(
-      color: Color.alphaBlend(colors.surface, Colors.black38), 
-      borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-    ),
-    padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
-    child: Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Row(
-          children: [
-            // Теперь количество точек красится динамически под тему!
-            Text(
-              'Точек: ${viewModel.points.length}',
-              style: textStyle?.copyWith(
-                fontWeight: FontWeight.w600,
-                color: colors.onSurface, // Больше никакого черного Colors.black54!
-              ),
-            ),
-            const Spacer(),
-            
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: colors.onSurface.withOpacity(0.08), 
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: DropdownButton<SortType>(
-                value: viewModel.currentSort,
-                underline: const SizedBox(), // Прячем линию
-                isDense: true,
-                borderRadius: BorderRadius.circular(16), 
-                dropdownColor: colors.surface, // Фоновый цвет всплывашки
-                iconEnabledColor: colors.onSurface.withOpacity(0.8),
-                style: textStyle?.copyWith(fontWeight: FontWeight.w600),
-                
-                icon: const Padding(
-                  padding: EdgeInsets.only(left: 8),
-                  child: FaIcon(
-                    FontAwesomeIcons.sort,
-                    size: 12,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                items: const [
-                  DropdownMenuItem(value: SortType.nameTop, child: Text('от А до Я')),
-                  DropdownMenuItem(value: SortType.nameBottom, child: Text('от Я до A')),
-                  DropdownMenuItem(value: SortType.ratingTop, child: Text('Сначала Лучшие')),
-                  DropdownMenuItem(value: SortType.ratingBottom, child: Text('Сначала Худшие')),
-                ],
-                onChanged: (value) {
-                  if (value != null) viewModel.changeSort(value);
-                },
-              ),
-            ),
-          ],
-        ),
-      ],
-    ),
-  );
-}
-
-  Widget _buildPointTile(WiFiPoint point, MapViewModel viewModel) {
-    final isSelected = point == _selectedPoint;
-    final theme = Theme.of(context);
-
-    return ListTile(
-      selected: isSelected,
-      selectedTileColor: theme.colorScheme.primary.withOpacity(0.2),
-      leading: Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          color: isSelected ? theme.colorScheme.primary : theme.colorScheme.primary.withOpacity(0.2),
-          shape: BoxShape.circle,
-        ),
-        child: Icon(
-          point.password.isEmpty ? Icons.wifi_tethering_rounded : Icons.wifi_rounded,
-          color: isSelected ? theme.colorScheme.surface : theme.colorScheme.primary,
-          size: 20,
-        ),
-      ),
-      title: Text(
-        point.name,
-        style: const TextStyle(fontWeight: FontWeight.w600),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-      ),
-      subtitle: Text(
-        point.password.isEmpty ? 'Публичная' : 'Пароль: ${point.password}',
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-      ),
-      trailing: PopupMenuButton<String>(
-        icon: const FaIcon(FontAwesomeIcons.chevronRight, size: 20),
-        itemBuilder: (_) => [
-          const PopupMenuItem(
-            value: 'verify',
-            child: Text('Верифицировать'),
-          ),
-        ],
-        onSelected: (value) async {
-          if (value == 'verify') {
-            final ok = await viewModel.verifyPoint(point);
-            if (!mounted) return;
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(ok
-                    ? 'Вы подключены к ${point.name} - точка верифицирована!'
-                    : 'Не удалось верифицировать: проверьте SSID и расстояние до точки.'),
-              ),
-            );
-          }
-        },
-      ),
-      onTap: () => _focusOnPoint(point),
-    );
-  }
-
-  Widget _buildEmptyState(MapViewModel viewModel) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.wifi_off_rounded, size: 56, color: Colors.grey.shade300),
-          const SizedBox(height: 12),
-          Text(
-            viewModel.isFileLoaded
-                ? 'Ничего не найдено'
-                : 'Данные не загружены',
-            style: TextStyle(color: Colors.grey.shade500, fontSize: 16),
-          ),
-          const SizedBox(height: 8),
-          if (!viewModel.isFileLoaded)
-            TextButton.icon(
-              icon: const FaIcon(FontAwesomeIcons.file),
-              label: const Text('Импортировать файл'),
-              onPressed: viewModel.pickAndLoadDatabase,
-            ),
-        ],
-      ),
-    );
-  }
 }

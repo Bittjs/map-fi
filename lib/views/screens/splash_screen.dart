@@ -49,10 +49,11 @@ class _SplashScreenState extends State<SplashScreen>
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
     const double iconSize = 140;
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: colors.surface,
       body: Center(
         child: AnimatedBuilder(
           animation: _controller,
@@ -64,20 +65,18 @@ class _SplashScreenState extends State<SplashScreen>
                 Icon(
                   Icons.wifi_rounded,
                   size: iconSize,
-                  color: Colors.grey.withOpacity(0.18),
+                  color: colors.onSurface.withOpacity(0.18),
                 ),
-
-                // Анимированное заполнение
+                
                 ClipRect(
                   child: Align(
                     alignment: Alignment.bottomCenter,
-
                     heightFactor: _controller.value,
 
-                    child: const Icon(
+                    child: Icon(
                       Icons.wifi_rounded,
                       size: iconSize,
-                      color: Color(0xFF16A085),
+                      color: colors.primary,
                     ),
                   ),
                 ),
