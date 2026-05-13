@@ -30,7 +30,7 @@
 
 ### Структура проекта
 
-
+```
 lib/
   models/            # Модели данных (WiFiPoint)
   viewmodels/        # Управление состоянием (MapViewModel)
@@ -40,16 +40,19 @@ lib/
     widgets/
 app_theme.dart     # Стили и цветовая схема приложения
 main.dart
-
+```
 ### Установка и сборка для локального запуска
+```
 git clone [https://github.com/bittjs/MapFi.git](https://github.com/bittjs/map-fi.git)
 cd map-fi
 
 flutter pub get
 
 flutter run
-
+```
 <p align="center">
     <b>Bittjs - <a href="https://t.me/shitcodenotes">shitcodenotes</a></b>
+</p>
+<p align="center">
     <b>SamDe7 - <a href="https://github.com/SamDe7">github</a></b>
 </p>
