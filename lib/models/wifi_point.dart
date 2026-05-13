@@ -1,10 +1,9 @@
 // lib/models/wifi_point.dart
-
+// Модель одной точки
 import 'package:latlong2/latlong.dart';
-import '../exceptions/mapfi_data_exception.dart';
+import '../exceptions/data_exception.dart';
 
-/// Модель одной точки Wi-Fi.
-/// Поля: id, name, password, rating, lat, lng.
+// Поля:
 class WiFiPoint {
   final String id;
   final String name;
@@ -22,13 +21,9 @@ class WiFiPoint {
     required this.lng,
   });
 
-  /// Географические координаты для flutter_map.
   LatLng get location => LatLng(lat, lng);
 
-  // ---------------------------------------------------------------------------
-  // Сериализация
-  // ---------------------------------------------------------------------------
-
+  //Сериализация
   factory WiFiPoint.fromJson(Map<String, dynamic> json) {
     _requireField(json, 'id');
     _requireField(json, 'name');
@@ -44,32 +39,33 @@ class WiFiPoint {
     final lat = json['lat'];
     final lng = json['lng'];
 
+    //Эксепшены
     if (id is! String || id.isEmpty) {
-      throw MapFiDataException('Поле "id" должно быть непустой строкой.');
+      throw const DataException('Поле "id" должно быть непустой строкой.');
     }
     if (name is! String || name.isEmpty) {
-      throw MapFiDataException('Поле "name" должно быть непустой строкой.');
+      throw const DataException('Поле "name" должно быть непустой строкой.');
     }
     if (password is! String) {
-      throw MapFiDataException('Поле "password" должно быть строкой.');
+      throw const DataException('Поле "password" должно быть строкой.');
     }
     if (rating is! num) {
-      throw MapFiDataException('Поле "rating" должно быть числом.');
+      throw const DataException('Поле "rating" должно быть числом.');
     }
     if (lat is! num) {
-      throw MapFiDataException('Поле "lat" должно быть числом.');
+      throw const DataException('Поле "lat" должно быть числом.');
     }
     if (lng is! num) {
-      throw MapFiDataException('Поле "lng" должно быть числом.');
+      throw const DataException('Поле "lng" должно быть числом.');
     }
 
     return WiFiPoint(
       id: id,
       name: name,
       password: password,
-      rating: (rating as num).toDouble(),
-      lat: (lat as num).toDouble(),
-      lng: (lng as num).toDouble(),
+      rating: (rating).toDouble(),
+      lat: (lat).toDouble(),
+      lng: (lng).toDouble(),
     );
   }
 
@@ -82,11 +78,9 @@ class WiFiPoint {
         'lng': lng,
       };
 
-  // ---------------------------------------------------------------------------
-
   static void _requireField(Map<String, dynamic> json, String field) {
     if (!json.containsKey(field)) {
-      throw MapFiDataException(
+      throw DataException(
         'Ошибка формата файла. Проверьте структуру JSON: '
         'отсутствует обязательное поле "$field".',
       );

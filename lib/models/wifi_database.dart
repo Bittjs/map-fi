@@ -1,7 +1,9 @@
 //lib/models/wifi_database.dart
+//Будущая имплементация нескольких активных конфигов
 import './wifi_point.dart';
-class WiFiDatabase {
 
+//Поля:
+class WiFiDatabase {
   final String id;
   final String name;
 

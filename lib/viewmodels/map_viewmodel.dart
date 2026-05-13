@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:io';
 import 'dart:convert';
+import 'dart:async';
 
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
@@ -12,13 +13,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map_animations/flutter_map_animations.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:network_info_plus/network_info_plus.dart';
 import 'package:uuid/uuid.dart';
 
-import '../exceptions/mapfi_data_exception.dart';
+import '../exceptions/data_exception.dart';
 import '../models/wifi_point.dart';
-import '../repositories/wifi_repository.dart';
+import '../services/repository_service.dart';
 import '../services/sync_service.dart';
 
 // ---------------------------------------------------------------------------
@@ -26,9 +26,10 @@ import '../services/sync_service.dart';
 // ---------------------------------------------------------------------------
 
 enum SortType {
-  name,        // А → Я
-  ratingTop,   // Сначала лучшие
-  ratingBottom // Сначала худшие
+  nameTop,
+  nameBottom,        
+  ratingTop,   
+  ratingBottom
 }
 
 // ---------------------------------------------------------------------------
@@ -105,7 +106,7 @@ class MapViewModel extends ChangeNotifier {
       _allPoints = points;
       _applyFilterAndSort();
       if (points.isNotEmpty) _isFileLoaded = true;
-    } on MapFiDataException catch (e) {
+    } on DataException catch (e) {
       _lastError = e.message;
     } catch (e) {
       _lastError = 'Не удалось загрузить данные: $e';
@@ -205,7 +206,7 @@ Future<bool> addNetworkPoint({
       await _repository.savePoints(_allPoints);
       _isFileLoaded = true;
       _lastError = null;
-    } on MapFiDataException catch (e) {
+    } on DataException catch (e) {
       _lastError = e.message;
     } finally {
       _setLoading(false);
@@ -297,8 +298,10 @@ Future<void> exportDatabase() async {
     }
 
     switch (_currentSort) {
-      case SortType.name:
+      case SortType.nameTop:
         filtered.sort((a, b) => a.name.compareTo(b.name));
+      case SortType.nameBottom:
+        filtered.sort((a, b) => b.name.compareTo(a.name));
       case SortType.ratingTop:
         filtered.sort((a, b) => b.rating.compareTo(a.rating));
       case SortType.ratingBottom:
@@ -386,7 +389,7 @@ Future<void> exportDatabase() async {
   ///      видимой области.
   void focusOnPoint(WiFiPoint point, double screenHeight, double zoom) {
     final sheetPixelHeight = screenHeight * _sheetSize;
-    final visibleHeight = screenHeight - sheetPixelHeight;
+    //final visibleHeight = screenHeight - sheetPixelHeight;
 
     // Смещение от центра экрана до центра видимой области (в пикселях):
     //   centreOffset = sheetPixelHeight / 2

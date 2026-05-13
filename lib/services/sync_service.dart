@@ -1,14 +1,13 @@
 // lib/services/sync_service.dart
-
-import 'dart:convert';
+//Синхронизация с в нешним файлом
 import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../exceptions/mapfi_data_exception.dart';
+import '../exceptions/data_exception.dart';
 import '../models/wifi_point.dart';
-import '../repositories/wifi_repository.dart';
+import 'repository_service.dart';
 
 /// Результат синхронизации с GitHub.
 enum SyncStatus {
@@ -26,17 +25,18 @@ class SyncResult {
   final SyncStatus status;
   final List<WiFiPoint> points;
   final String? errorMessage;
+  final dynamic exception;
 
-  const SyncResult._(this.status, this.points, this.errorMessage);
+  const SyncResult._(this.status, this.points, this.errorMessage, this.exception);
 
   factory SyncResult.notModified() =>
-      const SyncResult._(SyncStatus.notModified, [], null);
+      const SyncResult._(SyncStatus.notModified, [], null, null);
 
   factory SyncResult.newData(List<WiFiPoint> points) =>
-      SyncResult._(SyncStatus.newDataAvailable, points, null);
+      SyncResult._(SyncStatus.newDataAvailable, points, null, null);
 
-  factory SyncResult.error(String message) =>
-      SyncResult._(SyncStatus.error, [], message);
+  factory SyncResult.error(String message, [dynamic exception]) =>
+      SyncResult._(SyncStatus.error, [], message, exception);
 }
 
 /// Сервис синхронизации базы точек через публичный GitHub-репозиторий.
@@ -49,10 +49,7 @@ class SyncService {
 
   SyncService(this._repository);
 
-  // ---------------------------------------------------------------------------
-  // URL репозитория
-  // ---------------------------------------------------------------------------
-
+  //URL файла
   Future<String?> getSyncUrl() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString(_prefKeyUrl);
@@ -63,12 +60,7 @@ class SyncService {
     await prefs.setString(_prefKeyUrl, url);
   }
 
-  // ---------------------------------------------------------------------------
-  // Синхронизация
-  // ---------------------------------------------------------------------------
-
-  /// Скачивает JSON с сервера и сравнивает с локальными данными.
-  /// При совпадении ETag возвращает [SyncStatus.notModified] без парсинга.
+  //Синхронизация
   Future<SyncResult> synchronize() async {
     final prefs = await SharedPreferences.getInstance();
     final url = prefs.getString(_prefKeyUrl);
@@ -102,7 +94,7 @@ class SyncService {
         );
       }
 
-      // Сохраняем ETag для следующего запроса
+      //Сохраняется ETag для следующего запроса
       final newEtag = response.headers['etag'];
       if (newEtag != null) {
         await prefs.setString(_prefKeyEtag, newEtag);
@@ -112,20 +104,16 @@ class SyncService {
       final remotePoints = _repository.parseFromBytes(bytes);
 
       return SyncResult.newData(remotePoints);
-    } on MapFiDataException catch (e) {
+    } on DataException catch (e) {
       return SyncResult.error(e.message);
     } catch (e) {
-      return SyncResult.error('Не удалось подключиться к серверу: $e');
+      return SyncResult.error('Не удалось подключиться к серверу: $e', e);
     }
   }
 
-  // ---------------------------------------------------------------------------
-  // Вспомогательное
-  // ---------------------------------------------------------------------------
-
-  /// Конвертирует обычный GitHub-URL в raw.githubusercontent.com, если нужно.
+  //Вспомогательное преобразование
+  //TODO - держать в уме при добавлении проддержки других ссылок
   String _toRawUrl(String url) {
-    // Уже raw-ссылка
     if (url.contains('raw.githubusercontent.com')) return url;
 
     // https://github.com/user/repo/blob/branch/file.json
