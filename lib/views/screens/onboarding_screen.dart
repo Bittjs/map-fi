@@ -157,7 +157,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12)),
                   ),
-                  child: const Text('Начать без базы'),
+                  child: const Text('Продолжить'),
                 ),
               ),
 

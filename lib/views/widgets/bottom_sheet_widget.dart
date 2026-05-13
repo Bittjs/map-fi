@@ -91,7 +91,8 @@ class WiFiBottomSheet extends StatelessWidget {
 
     return Container(
       decoration: BoxDecoration(
-        color: colors.onSurface.withOpacity(0.05),
+        //color: colors.onSurface.withOpacity(0.05),
+        color: colors.surface,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
       ),
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
