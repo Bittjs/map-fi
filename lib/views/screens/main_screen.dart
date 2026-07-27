@@ -4,7 +4,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_map_animations/flutter_map_animations.dart';
-import 'package:flutter_map_tile_caching/flutter_map_tile_caching.dart'; 
+import 'package:flutter_map_tile_caching/flutter_map_tile_caching.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -25,9 +25,7 @@ class MainScreen extends StatefulWidget {
   State<MainScreen> createState() => _MainScreenState();
 }
 
-class _MainScreenState extends State<MainScreen>
-    with TickerProviderStateMixin {
-
+class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
   late final TileProvider _tileProvider;
 
   // Контроллер анимированной карты
@@ -55,8 +53,8 @@ class _MainScreenState extends State<MainScreen>
     if (kIsWeb) {
       _tileProvider = NetworkTileProvider();
     } else {
-      _tileProvider = FMTCTileProvider(stores: 
-      const {'mapStore': BrowseStoreStrategy.readUpdateCreate});
+      _tileProvider = FMTCTileProvider(
+          stores: const {'mapStore': BrowseStoreStrategy.readUpdateCreate});
     }
     // Передаём контроллер в ViewModel
     final viewModel = context.read<MapViewModel>();
@@ -164,9 +162,11 @@ class _MainScreenState extends State<MainScreen>
       }
     });
 
-    if (_selectedPoint != null){
+    if (_selectedPoint != null) {
       final screenHeight = MediaQuery.of(context).size.height;
-      context.read<MapViewModel>().focusOnPoint(point, screenHeight, _currentZoom);
+      context
+          .read<MapViewModel>()
+          .focusOnPoint(point, screenHeight, _currentZoom);
     }
   }
 
@@ -191,9 +191,10 @@ class _MainScreenState extends State<MainScreen>
 
       case SyncStatus.error:
         String errorMessage = result.errorMessage ?? 'Ошибка синхронизации';
-        
+
         if (result.exception is DataException) {
-          errorMessage = 'Ошибка структуры файла: ${(result.exception as DataException).message}';
+          errorMessage =
+              'Ошибка структуры файла: ${(result.exception as DataException).message}';
         }
 
         ScaffoldMessenger.of(context).showSnackBar(
@@ -253,29 +254,23 @@ class _MainScreenState extends State<MainScreen>
         actions: [
           TextButton(
             style: TextButton.styleFrom(
-              shape: const RoundedRectangleBorder(
-                  borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(24),
-                  topRight: Radius.circular(12),
-                  bottomLeft: Radius.circular(24),
-                  bottomRight: Radius.circular(12)
-                    )
-                  )
-                ),
+                shape: const RoundedRectangleBorder(
+                    borderRadius: BorderRadius.only(
+                        topLeft: Radius.circular(24),
+                        topRight: Radius.circular(12),
+                        bottomLeft: Radius.circular(24),
+                        bottomRight: Radius.circular(12)))),
             onPressed: () => Navigator.of(ctx).pop(),
             child: const Text('Отмена'),
           ),
           FilledButton(
             style: FilledButton.styleFrom(
-              shape: const RoundedRectangleBorder(
-                  borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(12),
-                  topRight: Radius.circular(24),
-                  bottomLeft: Radius.circular(12),
-                  bottomRight: Radius.circular(24)
-                    )
-                  )
-                ),
+                shape: const RoundedRectangleBorder(
+                    borderRadius: BorderRadius.only(
+                        topLeft: Radius.circular(12),
+                        topRight: Radius.circular(24),
+                        bottomLeft: Radius.circular(12),
+                        bottomRight: Radius.circular(24)))),
             onPressed: () async {
               await viewModel.syncService.setSyncUrl(controller.text.trim());
               if (ctx.mounted) Navigator.of(ctx).pop();
@@ -289,7 +284,7 @@ class _MainScreenState extends State<MainScreen>
 
   Future<void> _showAddPointDialog(MapViewModel viewModel) async {
     final passwordController = TextEditingController();
-    
+
     await showDialog(
       context: context,
       builder: (ctx) {
@@ -321,8 +316,8 @@ class _MainScreenState extends State<MainScreen>
                   SnackBar(
                     content: Text(
                       ok
-                        ? 'Точка успешно добавлена'
-                        : (viewModel.lastError ?? 'Ошибка'),
+                          ? 'Точка успешно добавлена'
+                          : (viewModel.lastError ?? 'Ошибка'),
                     ),
                   ),
                 );
@@ -343,7 +338,8 @@ class _MainScreenState extends State<MainScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       key: _scaffoldKey, // Устанавливаем ключ для контроля Drawer
-      endDrawer: Consumer<MapViewModel>( // endDrawer открывается справа (как и старое PopupMenu)
+      endDrawer: Consumer<MapViewModel>(
+        // endDrawer открывается справа (как и старое PopupMenu)
         builder: (context, viewModel, _) => _buildNavigationDrawer(viewModel),
       ),
       body: Consumer<MapViewModel>(
@@ -395,9 +391,8 @@ class _MainScreenState extends State<MainScreen>
     final urlTemplate = providerModel.currentUrlTemplate;
 
     // Use FMTC tile provider only for OSM (and on non-web), otherwise use NetworkTileProvider
-    final tileProvider = (currentProvider.id == 'osm')
-        ? _tileProvider
-        : NetworkTileProvider();
+    final tileProvider =
+        (currentProvider.id == 'osm') ? _tileProvider : NetworkTileProvider();
 
     return FlutterMap(
       mapController: _mapController.mapController,
@@ -418,7 +413,7 @@ class _MainScreenState extends State<MainScreen>
       children: [
         TileLayer(
           urlTemplate: urlTemplate,
-          userAgentPackageName: 'com.example.mapfi',
+          userAgentPackageName: 'ru.sonar.mapfi',
           tileProvider: tileProvider,
         ),
         MarkerLayer(
@@ -450,7 +445,8 @@ class _MainScreenState extends State<MainScreen>
                     border: Border.all(color: Colors.white, width: 3),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color.fromARGB(255, 22, 160, 133).withValues(alpha: 0.4),
+                        color: const Color.fromARGB(255, 22, 160, 133)
+                            .withValues(alpha: 0.4),
                         blurRadius: 8,
                         spreadRadius: 2,
                       ),
@@ -468,89 +464,121 @@ class _MainScreenState extends State<MainScreen>
     final theme = Theme.of(context);
 
     return Positioned(
-      top: 0,
-      left: 0,
-      right: 0,
-      child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          child: Row(
-            children: [
-              // Поиск
-              Expanded(
-                child: Material(
-                  elevation: 4,
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(24),
-                    topRight: Radius.circular(12),
-                    bottomLeft: Radius.circular(24),
-                    bottomRight: Radius.circular(12),
-                  ),
-                  color: theme.colorScheme.surface,
-                  child: TextField(
-                    controller: _searchController,
-                    style: TextStyle(color: theme.colorScheme.onSurface),
-                    decoration: InputDecoration(
-                      hintText: 'Поиск сети',
-                      hintStyle: TextStyle(color: theme.colorScheme.onSurface),
-                      prefixIcon: Padding(
-                        padding: const EdgeInsets.only(left: 16.0, right: 12.0),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            FaIcon(
-                              FontAwesomeIcons.magnifyingGlass,
-                              size: 18,
-                              color: theme.colorScheme.onSurface.withValues(alpha: 0.8),
-                            ),
-                          ],
+        top: 0,
+        left: 0,
+        right: 0,
+        child: SafeArea(
+            child: Align(
+          alignment: Alignment.topRight,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(
+              maxWidth: 500,
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Row(
+                children: [
+                  // Поиск
+                  Expanded(
+                    child: Container(
+                      height: 45,
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.surface,
+                        borderRadius: const BorderRadius.only(
+                          topLeft: Radius.circular(24),
+                          topRight: Radius.circular(12),
+                          bottomLeft: Radius.circular(24),
+                          bottomRight: Radius.circular(12),
                         ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: theme.colorScheme.onSurface
+                                .withValues(alpha: 0.2),
+                            blurRadius: 0,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
                       ),
-                      suffixIcon: _searchController.text.isNotEmpty
-                          ? IconButton(
-                              icon: FaIcon(
-                                FontAwesomeIcons.xmark,
-                                size: 16,
-                                color: Theme.of(context).colorScheme.onSurface,
-                              ),
-                              onPressed: () {
-                                _searchController.clear();
-                                viewModel.setSearchQuery('');
-                              },
-                            )
-                          : null,
-                      border: InputBorder.none,
-                      contentPadding: const EdgeInsets.symmetric(vertical: 14), 
+                      child: TextField(
+                        controller: _searchController,
+                        style: TextStyle(color: theme.colorScheme.onSurface),
+                        decoration: InputDecoration(
+                          hintText: 'Поиск сети',
+                          hintStyle:
+                              TextStyle(color: theme.colorScheme.onSurface),
+                          prefixIcon: Padding(
+                            padding:
+                                const EdgeInsets.only(left: 16.0, right: 12.0),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                FaIcon(
+                                  FontAwesomeIcons.magnifyingGlass,
+                                  size: 18,
+                                  color: theme.colorScheme.onSurface
+                                      .withValues(alpha: 0.8),
+                                ),
+                              ],
+                            ),
+                          ),
+                          suffixIcon: _searchController.text.isNotEmpty
+                              ? IconButton(
+                                  icon: FaIcon(
+                                    FontAwesomeIcons.xmark,
+                                    size: 16,
+                                    color:
+                                        Theme.of(context).colorScheme.onSurface,
+                                  ),
+                                  onPressed: () {
+                                    _searchController.clear();
+                                    viewModel.setSearchQuery('');
+                                  },
+                                )
+                              : null,
+                          border: InputBorder.none,
+                          contentPadding:
+                              const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                        onChanged: viewModel.setSearchQuery,
+                      ),
                     ),
-                    onChanged: viewModel.setSearchQuery,
                   ),
-                ),
+                  const SizedBox(width: 8),
+                  // Кнопка вызова Drawer
+                  Container(
+                    height: 45,
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.surface,
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(12),
+                        topRight: Radius.circular(24),
+                        bottomLeft: Radius.circular(12),
+                        bottomRight: Radius.circular(24),
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: theme.colorScheme.onSurface
+                              .withValues(alpha: 0.2),
+                          blurRadius: 0,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: IconButton(
+                      icon: const FaIcon(FontAwesomeIcons.ellipsisVertical,
+                          size: 18),
+                      tooltip: 'Меню управления',
+                      onPressed: () {
+                        _scaffoldKey.currentState?.openEndDrawer();
+                      },
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 8),
-              // Кнопка вызова Drawer
-              Material(
-                elevation: 4,
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(12),
-                  topRight: Radius.circular(24),
-                  bottomLeft: Radius.circular(12),
-                  bottomRight: Radius.circular(24),
-                ),
-                color: theme.colorScheme.surface,
-                child: IconButton(
-                  icon: const FaIcon(FontAwesomeIcons.ellipsisVertical, size: 18),
-                  tooltip: 'Меню управления',
-                  onPressed: () {
-                    _scaffoldKey.currentState?.openEndDrawer();
-                  },
-                ),
-              ),
-            ],
+            ),
           ),
-        ),
-      ),
-    );
+        )));
   }
 
   Widget _buildNavigationDrawer(MapViewModel viewModel) {
@@ -571,36 +599,51 @@ class _MainScreenState extends State<MainScreen>
         ),
         NavigationDrawerDestination(
           icon: const FaIcon(FontAwesomeIcons.plus, size: 20),
-          label: Text('Добавить точку', style: TextStyle(color: theme.colorScheme.onSurface)),
+          label: Text('Добавить точку',
+              style: TextStyle(color: theme.colorScheme.onSurface)),
         ),
         NavigationDrawerDestination(
           icon: const FaIcon(FontAwesomeIcons.folderOpen, size: 20),
-          label: Text('Импорт данных', style: TextStyle(color: theme.colorScheme.onSurface)),
+          label: Text('Импорт данных',
+              style: TextStyle(color: theme.colorScheme.onSurface)),
         ),
         NavigationDrawerDestination(
           icon: const FaIcon(FontAwesomeIcons.download, size: 20),
-          label: Text('Экспорт данных', style: TextStyle(color: theme.colorScheme.onSurface)),
+          label: Text('Экспорт данных',
+              style: TextStyle(color: theme.colorScheme.onSurface)),
         ),
         NavigationDrawerDestination(
           icon: const FaIcon(FontAwesomeIcons.link, size: 20),
-          label: Text('URL репозитория', style: TextStyle(color: theme.colorScheme.onSurface)),
+          label: Text('URL репозитория',
+              style: TextStyle(color: theme.colorScheme.onSurface)),
         ),
         NavigationDrawerDestination(
           icon: const FaIcon(FontAwesomeIcons.rotate, size: 20),
-          label: Text('Синхронизировать', style: TextStyle(color: theme.colorScheme.onSurface)),
+          label: Text('Синхронизировать',
+              style: TextStyle(color: theme.colorScheme.onSurface)),
         ),
         NavigationDrawerDestination(
           icon: const FaIcon(FontAwesomeIcons.locationCrosshairs, size: 20),
-          label: Text('Моё местоположение', style: TextStyle(color: theme.colorScheme.onSurface)),
+          label: Text('Моё местоположение',
+              style: TextStyle(color: theme.colorScheme.onSurface)),
         ),
         NavigationDrawerDestination(
           icon: const FaIcon(FontAwesomeIcons.map, size: 20),
-          label: Text('Провайдер карты', style: TextStyle(color: theme.colorScheme.onSurface)),
+          label: Text('Провайдер карты',
+              style: TextStyle(color: theme.colorScheme.onSurface)),
         ),
       ],
       onDestinationSelected: (index) {
         // Карта соответствия индексов Drawer и строковых команд
-        final actions = ['add', 'import', 'export', 'sync_url', 'sync', 'location', 'provider'];
+        final actions = [
+          'add',
+          'import',
+          'export',
+          'sync_url',
+          'sync',
+          'location',
+          'provider'
+        ];
         _handleMenuAction(actions[index], viewModel);
       },
     );

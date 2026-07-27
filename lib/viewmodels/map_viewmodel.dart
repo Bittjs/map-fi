@@ -25,12 +25,7 @@ import '../services/sync_service.dart';
 // Тип сортировки
 // ---------------------------------------------------------------------------
 
-enum SortType {
-  nameTop,
-  nameBottom,        
-  ratingTop,   
-  ratingBottom
-}
+enum SortType { nameTop, nameBottom, ratingTop, ratingBottom }
 
 // ---------------------------------------------------------------------------
 // ViewModel
@@ -50,7 +45,7 @@ class MapViewModel extends ChangeNotifier {
 
   // ---- Данные ----------------------------------------------------------------
   List<WiFiPoint> _allPoints = []; // исходный список (без фильтра)
-  List<WiFiPoint> _points = [];    // отображаемый список
+  List<WiFiPoint> _points = []; // отображаемый список
 
   List<WiFiPoint> get points => _points;
 
@@ -115,66 +110,63 @@ class MapViewModel extends ChangeNotifier {
     }
   }
 
-Future<bool> addNetworkPoint({
-  String password = '',
-}) async {
+  Future<bool> addNetworkPoint({
+    String password = '',
+  }) async {
+    await refreshUserLocation();
 
-  await refreshUserLocation();
-
-  if (_userPosition == null) {
-    _lastError = 'Не удалось определить геопозицию.';
-    notifyListeners();
-    return false;
-  }
-
-  final wifi = WifiInfoWrapper();
-  final ssid = await wifi.getWifiName();
-
-  if (ssid == null || ssid.isEmpty) {
-    _lastError = 'Вы не подключены к Wi-Fi.';
-    notifyListeners();
-    return false;
-  }
-
-  // Проверяем существование рядом
-  for (final point in _allPoints) {
-
-    final distance = Geolocator.distanceBetween(
-      _userPosition!.latitude,
-      _userPosition!.longitude,
-      point.lat,
-      point.lng,
-    );
-
-    if (distance < 30 && point.name == ssid) {
-      _lastError = 'Такая точка уже существует рядом.';
+    if (_userPosition == null) {
+      _lastError = 'Не удалось определить геопозицию.';
       notifyListeners();
       return false;
     }
+
+    final wifi = WifiInfoWrapper();
+    final ssid = await wifi.getWifiName();
+
+    if (ssid == null || ssid.isEmpty) {
+      _lastError = 'Вы не подключены к Wi-Fi.';
+      notifyListeners();
+      return false;
+    }
+
+    // Проверяем существование рядом
+    for (final point in _allPoints) {
+      final distance = Geolocator.distanceBetween(
+        _userPosition!.latitude,
+        _userPosition!.longitude,
+        point.lat,
+        point.lng,
+      );
+
+      if (distance < 30 && point.name == ssid) {
+        _lastError = 'Такая точка уже существует рядом.';
+        notifyListeners();
+        return false;
+      }
+    }
+
+    final point = WiFiPoint(
+      id: const Uuid().v4(),
+      name: ssid,
+      password: password,
+      rating: 0,
+      lat: _userPosition!.latitude,
+      lng: _userPosition!.longitude,
+    );
+
+    _allPoints.add(point);
+
+    _applyFilterAndSort();
+
+    await _repository.savePoints(_allPoints);
+
+    _lastError = null;
+
+    notifyListeners();
+
+    return true;
   }
-
-  final point = WiFiPoint(
-    id: const Uuid().v4(),
-    name: ssid,
-    password: password,
-    rating: 0,
-    lat: _userPosition!.latitude,
-    lng: _userPosition!.longitude,
-  );
-
-  _allPoints.add(point);
-
-  _applyFilterAndSort();
-
-  await _repository.savePoints(_allPoints);
-
-  _lastError = null;
-
-  notifyListeners();
-
-  return true;
-}
-
 
   // ===========================================================================
   // Импорт / экспорт
@@ -214,39 +206,33 @@ Future<bool> addNetworkPoint({
   }
 
   /// Экспортирует текущий список точек в файл через системный диалог.
-Future<void> exportDatabase() async {
+  Future<void> exportDatabase() async {
+    try {
+      final dir = await getTemporaryDirectory();
 
-  try {
+      final file = File(
+        '${dir.path}/mapfi_export.json',
+      );
 
-    final dir = await getTemporaryDirectory();
+      final json = _allPoints.map((e) => e.toJson()).toList();
 
-    final file = File(
-      '${dir.path}/mapfi_export.json',
-    );
+      await file.writeAsString(
+        jsonEncode(json),
+        flush: true,
+      );
 
-    final json = _allPoints
-        .map((e) => e.toJson())
-        .toList();
+      await Share.shareXFiles(
+        [XFile(file.path)],
+        text: 'Экспорт базы MapFi',
+      );
 
-    await file.writeAsString(
-      jsonEncode(json),
-      flush: true,
-    );
+      _lastError = null;
+    } catch (e) {
+      _lastError = 'Ошибка экспорта: $e';
+    }
 
-    await Share.shareXFiles(
-      [XFile(file.path)],
-      text: 'Экспорт базы MapFi',
-    );
-
-    _lastError = null;
-
-  } catch (e) {
-
-    _lastError = 'Ошибка экспорта: $e';
+    notifyListeners();
   }
-
-  notifyListeners();
-}
 
   // ===========================================================================
   // GitHub синхронизация
@@ -292,9 +278,8 @@ Future<void> exportDatabase() async {
 
     if (_searchQuery.isNotEmpty) {
       final q = _searchQuery.toLowerCase();
-      filtered = filtered
-          .where((p) => p.name.toLowerCase().contains(q))
-          .toList();
+      filtered =
+          filtered.where((p) => p.name.toLowerCase().contains(q)).toList();
     }
 
     switch (_currentSort) {
@@ -331,7 +316,9 @@ Future<void> exportDatabase() async {
       _userPosition = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
       );
-      notifyListeners();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        notifyListeners();
+      });
     } catch (_) {
       // Геолокация недоступна — приложение работает без неё
     }
@@ -388,30 +375,34 @@ Future<void> exportDatabase() async {
   ///      центрировалась ниже маркера, а маркер оказывался в верхней части
   ///      видимой области.
   void focusOnPoint(WiFiPoint point, double screenHeight, double zoom) {
-    final sheetPixelHeight = screenHeight * _sheetSize;
-    //final visibleHeight = screenHeight - sheetPixelHeight;
+    try {
+      final sheetPixelHeight = screenHeight * _sheetSize;
+      //final visibleHeight = screenHeight - sheetPixelHeight;
 
-    // Смещение от центра экрана до центра видимой области (в пикселях):
-    //   centreOffset = sheetPixelHeight / 2
-    // Нам нужно сдвинуть камеру так, чтобы маркер попал в центр видимой области.
-    // Камера должна смотреть на точку, сдвинутую «вниз» на centreOffset пикселей.
-    final offsetPixels = sheetPixelHeight / 2;
+      // Смещение от центра экрана до центра видимой области (в пикселях):
+      //   centreOffset = sheetPixelHeight / 2
+      // Нам нужно сдвинуть камеру так, чтобы маркер попал в центр видимой области.
+      // Камера должна смотреть на точку, сдвинутую «вниз» на centreOffset пикселей.
+      final offsetPixels = sheetPixelHeight / 2;
 
-    // Градусов широты на пиксель при текущем зуме:
-    //   metersPerPixel = 156543.03392 * cos(lat) / 2^zoom
-    //   degreesPerPixel = metersPerPixel / 111320
-    final latRad = point.lat * math.pi / 180.0;
-    final metersPerPixel =
-        156543.03392 * math.cos(latRad) / math.pow(2, zoom);
-    final degreesLatPerPixel = metersPerPixel / 111320.0;
+      // Градусов широты на пиксель при текущем зуме:
+      //   metersPerPixel = 156543.03392 * cos(lat) / 2^zoom
+      //   degreesPerPixel = metersPerPixel / 111320
+      final latRad = point.lat * math.pi / 180.0;
+      final metersPerPixel =
+          156543.03392 * math.cos(latRad) / math.pow(2, zoom);
+      final degreesLatPerPixel = metersPerPixel / 111320.0;
 
-    // Сдвигаем целевую координату вниз по широте (уменьшаем lat):
-    final adjustedLat = point.lat - degreesLatPerPixel * offsetPixels;
+      // Сдвигаем целевую координату вниз по широте (уменьшаем lat):
+      final adjustedLat = point.lat - degreesLatPerPixel * offsetPixels;
 
-    mapController.animateTo(
-      dest: LatLng(adjustedLat, point.lng),
-      zoom: zoom,
-    );
+      mapController.animateTo(
+        dest: LatLng(adjustedLat, point.lng),
+        zoom: zoom,
+      );
+    } catch (e) {
+      debugPrint("Карте не инициализированна для анимации: $e");
+    }
   }
 
   // ===========================================================================

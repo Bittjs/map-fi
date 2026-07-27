@@ -36,24 +36,42 @@ class MapProviderModel extends ChangeNotifier {
       urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
     ),
     MapProviderInfo(
-      id: 'wikimedia',
-      name: 'Wikimedia',
-      subtitle: 'Альтернативный бесплатный вариант',
-      icon: FontAwesomeIcons.globe,
+      id: 'carto',
+      name: 'CartoDB',
+      subtitle: 'OpenStreetMaps ещё чище!',
+      icon: FontAwesomeIcons.wineGlass,
       requiresKey: false,
-      urlTemplate: 'https://maps.wikimedia.org/osm-intl/{z}/{x}/{y}.png',
-        ),
+      urlTemplate:
+          'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
+    ),
     MapProviderInfo(
       id: '2gis',
       name: '2GIS',
       subtitle: 'Популярная карта, требуется API-ключ',
       icon: FontAwesomeIcons.compass,
       requiresKey: true,
-      urlTemplate: 'https://tile2.maps.2gis.com/tiles?x={x}&y={y}&z={z}&v=1&key={key}',
+      urlTemplate:
+          'https://tile2.maps.2gis.com/tiles?x={x}&y={y}&z={z}&v=1&key={key}',
+    ),
+    MapProviderInfo(
+      id: 'otm',
+      name: 'OpenTopoMap',
+      subtitle: 'Топографическая карта, чёткие контуры зданий',
+      icon: FontAwesomeIcons.mountain,
+      requiresKey: false,
+      urlTemplate: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
+    ),
+    MapProviderInfo(
+      id: 'ewi',
+      name: 'Esri World Imagery',
+      subtitle: 'Карта из спутниковых снимков',
+      icon: FontAwesomeIcons.satellite,
+      requiresKey: false,
+      urlTemplate:
+          'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
     ),
   ];
 
- 
   String _selectedProviderId = 'osm';
   Map<String, String> _apiKeys = {}; // id -> ключ
   bool _isInitialized = false;
