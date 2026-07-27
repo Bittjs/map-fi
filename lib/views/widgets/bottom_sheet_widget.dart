@@ -84,7 +84,7 @@ class WiFiBottomSheet extends StatelessWidget {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
     final textStyle = theme.textTheme.bodyMedium?.copyWith(
-      color: colors.onSurface.withOpacity(0.9),
+      color: colors.onSurface.withValues(alpha: 0.9),
       fontWeight: FontWeight.w500,
       fontSize: 14,
     );
@@ -109,7 +109,7 @@ class WiFiBottomSheet extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
-              color: colors.onSurface.withOpacity(0.08),
+              color: colors.onSurface.withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(10),
             ),
             child: DropdownButton<SortType>(
@@ -118,7 +118,7 @@ class WiFiBottomSheet extends StatelessWidget {
               isDense: true,
               borderRadius: BorderRadius.circular(16),
               dropdownColor: colors.surface,
-              iconEnabledColor: colors.onSurface.withOpacity(0.8),
+              iconEnabledColor: colors.onSurface.withValues(alpha: 0.8),
               style: textStyle?.copyWith(fontWeight: FontWeight.w600),
               icon: const Padding(
                 padding: EdgeInsets.only(left: 8),
@@ -146,12 +146,12 @@ class WiFiBottomSheet extends StatelessWidget {
 
     return ListTile(
       selected: isSelected,
-      selectedTileColor: theme.colorScheme.primary.withOpacity(0.2),
+      selectedTileColor: theme.colorScheme.primary.withValues(alpha: 0.2),
       leading: Container(
         width: 40,
         height: 40,
         decoration: BoxDecoration(
-          color: isSelected ? theme.colorScheme.primary : theme.colorScheme.primary.withOpacity(0.2),
+          color: isSelected ? theme.colorScheme.primary : theme.colorScheme.primary.withValues(alpha: 0.2),
           shape: BoxShape.circle,
         ),
         child: Icon(

@@ -64,7 +64,7 @@ class _MapProviderScreenState extends State<MapProviderScreen> {
             return const Center(child: CircularProgressIndicator());
           }
 
-          final providers = MapProviderModel.providers;
+          const providers = MapProviderModel.providers;
 
           return ListView(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -74,12 +74,12 @@ class _MapProviderScreenState extends State<MapProviderScreen> {
                   color: colors.surface,
                   borderRadius: BorderRadius.circular(24),
                   border: Border.all(
-                    color: colors.onSurface.withOpacity(0.12),
+                    color: colors.onSurface.withValues(alpha: 0.12),
                     width: 1.0,
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: colors.onSurface.withOpacity(0.04),
+                      color: colors.onSurface.withValues(alpha: 0.04),
                       blurRadius: 10,
                       offset: const Offset(0, 4),
                     ),
@@ -155,7 +155,7 @@ class _MapProviderScreenState extends State<MapProviderScreen> {
                             Divider(
                               height: 1,
                               thickness: 1,
-                              color: colors.onSurface.withOpacity(0.08),
+                              color: colors.onSurface.withValues(alpha: 0.08),
                             ),
                         ],
                       );
@@ -202,14 +202,14 @@ class _ProviderTile extends StatelessWidget {
               height: 44,
               decoration: BoxDecoration(
                 color: isSelected
-                    ? colors.primary.withOpacity(0.1)
-                    : colors.onSurface.withOpacity(0.05),
+                    ? colors.primary.withValues(alpha: 0.1)
+                    : colors.onSurface.withValues(alpha: 0.05),
                 shape: BoxShape.circle,
               ),
               child: Center(
                 child: FaIcon(
                   provider.icon,
-                  color: isSelected ? colors.primary : colors.onSurface.withOpacity(0.6),
+                  color: isSelected ? colors.primary : colors.onSurface.withValues(alpha: 0.6),
                   size: 18,
                 ),
               ),
@@ -232,7 +232,7 @@ class _ProviderTile extends StatelessWidget {
                   Text(
                     provider.subtitle,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: colors.onSurface.withOpacity(0.5),
+                          color: colors.onSurface.withValues(alpha: 0.5),
                         ),
                   ),
                 ],
@@ -253,7 +253,7 @@ class _ProviderTile extends StatelessWidget {
                         ? FontAwesomeIcons.chevronUp
                         : FontAwesomeIcons.chevronDown,
                     size: 14,
-                    color: colors.onSurface.withOpacity(0.4),
+                    color: colors.onSurface.withValues(alpha: 0.4),
                   ),
               ],
             ),
@@ -285,7 +285,7 @@ class _ApiKeyInput extends StatelessWidget {
     return Container(
       height: 72,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      color: colors.onSurface.withOpacity(0.02),
+      color: colors.onSurface.withValues(alpha: 0.02),
       child: Form(
         key: formKey,
         child: Row(
@@ -300,16 +300,16 @@ class _ApiKeyInput extends StatelessWidget {
                   decoration: InputDecoration(
                     hintText: 'Введите API-ключ',
                     labelText: 'API-ключ',
-                    labelStyle: TextStyle(color: colors.onSurface.withOpacity(0.6)),
+                    labelStyle: TextStyle(color: colors.onSurface.withValues(alpha: 0.6)),
                     floatingLabelStyle: TextStyle(color: colors.primary),
                     contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: colors.onSurface.withOpacity(0.12)),
+                      borderSide: BorderSide(color: colors.onSurface.withValues(alpha: 0.12)),
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: colors.onSurface.withOpacity(0.12)),
+                      borderSide: BorderSide(color: colors.onSurface.withValues(alpha: 0.12)),
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),

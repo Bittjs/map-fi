@@ -65,7 +65,7 @@ class _SplashScreenState extends State<SplashScreen>
                 Icon(
                   Icons.wifi_rounded,
                   size: iconSize,
-                  color: colors.onSurface.withOpacity(0.18),
+                  color: colors.onSurface.withValues(alpha: 0.18),
                 ),
 
                 ClipRect(

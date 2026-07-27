@@ -450,7 +450,7 @@ class _MainScreenState extends State<MainScreen>
                     border: Border.all(color: Colors.white, width: 3),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color.fromARGB(255, 22, 160, 133).withOpacity(0.4),
+                        color: const Color.fromARGB(255, 22, 160, 133).withValues(alpha: 0.4),
                         blurRadius: 8,
                         spreadRadius: 2,
                       ),
@@ -502,7 +502,7 @@ class _MainScreenState extends State<MainScreen>
                             FaIcon(
                               FontAwesomeIcons.magnifyingGlass,
                               size: 18,
-                              color: theme.colorScheme.onSurface.withOpacity(0.8),
+                              color: theme.colorScheme.onSurface.withValues(alpha: 0.8),
                             ),
                           ],
                         ),

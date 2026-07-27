@@ -37,7 +37,7 @@ class WiFiMarkerWidget extends StatelessWidget {
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: markerColor.withOpacity(0.3),
+                      color: markerColor.withValues(alpha: 0.3),
                       offset: const Offset(0, 1.5),
                       spreadRadius: 0.5,
                       blurStyle:BlurStyle.inner
@@ -52,7 +52,7 @@ class WiFiMarkerWidget extends StatelessWidget {
               margin: const EdgeInsets.only(top: 2),
               padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
               decoration: BoxDecoration(
-                color: colors.surface.withOpacity(0.6),
+                color: colors.surface.withValues(alpha: 0.6),
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Text(

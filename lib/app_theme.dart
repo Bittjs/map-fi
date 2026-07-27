@@ -37,7 +37,7 @@ class AppTheme {
       dialogTheme: DialogThemeData(
         backgroundColor: scheme.surface,
         titleTextStyle: TextStyle(color: scheme.onSurface, fontSize: 20, fontWeight: FontWeight.bold),
-        contentTextStyle: TextStyle(color: scheme.onSurface.withOpacity(0.8), fontSize: 16),
+        contentTextStyle: TextStyle(color: scheme.onSurface.withValues(alpha: 0.8), fontSize: 16),
       ),
       
       dropdownMenuTheme: DropdownMenuThemeData(
@@ -51,7 +51,7 @@ class AppTheme {
               shape: WidgetStateProperty.all(
                 RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
-                  side: BorderSide(color: scheme.onSurface.withOpacity(0.12), width: 1),
+                  side: BorderSide(color: scheme.onSurface.withValues(alpha: 0.12), width: 1),
                 ),
               ),
               elevation: WidgetStateProperty.all(8),
@@ -59,7 +59,7 @@ class AppTheme {
           ),
 
       cardTheme: CardThemeData(
-        color: scheme.surface.withOpacity(0.5),
+        color: scheme.surface.withValues(alpha: 0.5),
         elevation: 2,
       ),
     );
