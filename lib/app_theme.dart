@@ -19,11 +19,11 @@ class AppTheme {
   static ColorScheme darkScheme() => const ColorScheme(
         brightness: Brightness.dark,
         primary: Color(0xFF1ABC9C),
-        onPrimary: Colors.black,
+        onPrimary: Colors.white,
         secondary: Color(0xFFFFD54F),
         onSecondary: Colors.black,
         error: Color(0xFFFF5252),
-        onError: Colors.black,
+        onError: Colors.white,
         surface: Color(0xFF121212),
         onSurface: Colors.white,
       );

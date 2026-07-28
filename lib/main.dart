@@ -9,6 +9,7 @@ import 'package:flutter_map_tile_caching/flutter_map_tile_caching.dart';
 
 import 'viewmodels/map_viewmodel.dart';
 import 'viewmodels/provider_viewmodel.dart';
+import 'viewmodels/preference_viewmodel.dart';
 import './app_theme.dart';
 
 Future<void> main() async {
@@ -35,18 +36,20 @@ class MapFiApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = AppTheme.lightScheme();
-
     return MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (_) => MapViewModel()),
-        ChangeNotifierProvider(create: (_) => MapProviderViewModel()..init()),
-      ],
-      child: MaterialApp(
-          title: 'MapFi',
-          debugShowCheckedModeBanner: false,
-          theme: AppTheme.build(colorScheme),
-          home: SplashScreen(showOnboarding: showOnboarding)),
-    );
+        providers: [
+          ChangeNotifierProvider(create: (_) => MapViewModel()),
+          ChangeNotifierProvider(create: (_) => MapProviderViewModel()..init()),
+          ChangeNotifierProvider(create: (_) => ThemeViewModel()),
+        ],
+        child: Consumer<ThemeViewModel>(
+          builder: (context, ThemeViewModel, child) => MaterialApp(
+              title: 'MapFi',
+              debugShowCheckedModeBanner: false,
+              theme: AppTheme.build(AppTheme.lightScheme()),
+              darkTheme: AppTheme.build(AppTheme.darkScheme()),
+              themeMode: ThemeViewModel.themeMode,
+              home: SplashScreen(showOnboarding: showOnboarding)),
+        ));
   }
 }

@@ -36,12 +36,13 @@ class MapProviderViewModel extends ChangeNotifier {
     return provider;
   }
 
+  String getFormattedUrl(String urlTemplate) {
+    final key = _apiKeys[currentProvider.id] ?? '';
+    return urlTemplate.replaceAll('{key}', key);
+  }
+
   String get currentUrlTemplate {
-    final p = currentProvider;
-    if (p.requiresKey) {
-      return p.urlTemplate.replaceAll('{key}', _apiKeys[p.id] ?? '');
-    }
-    return p.urlTemplate;
+    return getFormattedUrl(currentProvider.urlTemplate);
   }
 
   Future<void> init() async {

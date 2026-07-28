@@ -16,7 +16,9 @@ import '../../viewmodels/provider_viewmodel.dart';
 import '../widgets/wifi_marker_widget.dart';
 import '../../exceptions/data_exception.dart';
 import '../widgets/bottom_sheet_widget.dart';
+import '../widgets/side_panel_widget.dart';
 import 'map_provider_screen.dart';
+import 'preference_screen.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -118,6 +120,13 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
             MaterialPageRoute(
               builder: (context) => const MapProviderScreen(),
             ),
+          );
+        }
+        break;
+      case 'preferences':
+        if (mounted) {
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (context) => const PreferencesScreen()),
           );
         }
         break;
@@ -336,6 +345,8 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
+    final isWideScreen = MediaQuery.of(context).size.width >= 600;
+
     return Scaffold(
       key: _scaffoldKey, // Устанавливаем ключ для контроля Drawer
       endDrawer: Consumer<MapViewModel>(
@@ -353,35 +364,59 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
             });
           }
 
-          return Stack(
-            children: [
-              // ---- Карта (на весь экран) -----------------------------------
-              _buildMap(viewModel),
-
-              // ---- Прозрачный AppBar ---------------------------------------
-              _buildTopBar(viewModel),
-
-              // ---- Нижняя шторка -------------------------------------------
-              WiFiBottomSheet(
-                controller: _sheetController,
-                selectedPoint: _selectedPoint,
-                onPointTap: _focusOnPoint,
-              ),
-
-              if (viewModel.isLoading)
-                const Positioned(
-                  top: 80,
-                  left: 0,
-                  right: 0,
-                  child: Center(child: CircularProgressIndicator()),
-                ),
-            ],
-          );
+          return isWideScreen
+              ? _buildWideLayout(viewModel)
+              : _buildMobileLayout(viewModel);
         },
       ),
     );
   }
 
+  Widget _buildMobileLayout(MapViewModel viewModel) {
+    return Stack(
+      children: [
+        _buildMap(viewModel),
+        _buildTopBar(viewModel),
+        WiFiBottomSheet(
+          controller: _sheetController,
+          selectedPoint: _selectedPoint,
+          onPointTap: _focusOnPoint,
+        ),
+        if (viewModel.isLoading)
+          const Positioned(
+            top: 80,
+            left: 0,
+            right: 0,
+            child: Center(child: CircularProgressIndicator()),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildWideLayout(MapViewModel viewModel) {
+    return Row(children: [
+      SizedBox(
+        width: 400,
+        child: WiFiSidePanel(
+            selectedPoint: _selectedPoint, onPointTap: _focusOnPoint),
+      ),
+      Expanded(
+        child: Stack(
+          children: [
+            _buildMap(viewModel),
+            _buildTopBar(viewModel),
+            if (viewModel.isLoading)
+              const Positioned(
+                top: 80,
+                left: 0,
+                right: 0,
+                child: Center(child: CircularProgressIndicator()),
+              ),
+          ],
+        ),
+      )
+    ]);
+  }
   // ---------------------------------------------------------------------------
   // Компоненты UI (Карта, Панели, Drawer)
   // ---------------------------------------------------------------------------
@@ -390,7 +425,16 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
     final userLatLng = viewModel.userLatLng;
     final providerModel = context.watch<MapProviderViewModel>();
     final currentProvider = providerModel.currentProvider;
-    final urlTemplate = providerModel.currentUrlTemplate;
+    final bool isDarkMode = Theme.of(context).brightness == Brightness.dark;
+
+    final String urlTemplate =
+        (isDarkMode && currentProvider.urlTemplateDark != null)
+            ? providerModel.getFormattedUrl(currentProvider.urlTemplateDark!)
+            : providerModel.currentUrlTemplate;
+
+    final bool useDarkModeFilter = isDarkMode &&
+        currentProvider.urlTemplateDark == null &&
+        currentProvider.id != 'ewi';
 
     // Use FMTC tile provider only for OSM (and on non-web), otherwise use NetworkTileProvider
     final tileProvider =
@@ -417,6 +461,10 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
           urlTemplate: urlTemplate,
           userAgentPackageName: 'ru.sonar.mapfi',
           tileProvider: tileProvider,
+          tileBuilder: useDarkModeFilter
+              ? (context, tileWidget, tile) =>
+                  darkModeTileBuilder(context, tileWidget, tile)
+              : null,
         ),
         MarkerLayer(
           markers: viewModel.points.map((point) {
@@ -602,7 +650,7 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
         NavigationDrawerDestination(
           icon: const FaIcon(FontAwesomeIcons.plus, size: 20),
           label: Text('Добавить точку',
-              style: TextStyle(color: theme.colorScheme.onSurface)),
+              style: TextStyle(color: theme.colorScheme.surface)),
         ),
         NavigationDrawerDestination(
           icon: const FaIcon(FontAwesomeIcons.folderOpen, size: 20),
@@ -635,7 +683,7 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
               style: TextStyle(color: theme.colorScheme.onSurface)),
         ),
         NavigationDrawerDestination(
-          icon: const FaIcon(FontAwesomeIcons.map, size: 20),
+          icon: const FaIcon(FontAwesomeIcons.paintbrush, size: 20),
           label: Text('Предпочтения',
               style: TextStyle(color: theme.colorScheme.onSurface)),
         ),
