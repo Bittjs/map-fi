@@ -1,7 +1,9 @@
+//lib/views/screens/map_provider_screen.dart
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:provider/provider.dart';
-import '../../viewmodels/map_provider_model.dart';
+import '../../viewmodels/provider_viewmodel.dart';
+
 class MapProviderScreen extends StatefulWidget {
   const MapProviderScreen({super.key});
 
@@ -10,7 +12,8 @@ class MapProviderScreen extends StatefulWidget {
 }
 
 class _MapProviderScreenState extends State<MapProviderScreen> {
-  String? _expandedProviderId; // id провайдера, для которого показано поле ввода
+  String?
+      _expandedProviderId; // id провайдера, для которого показано поле ввода
   final Map<String, TextEditingController> _controllers = {};
   final Map<String, GlobalKey<FormState>> _formKeys = {};
 
@@ -58,13 +61,13 @@ class _MapProviderScreenState extends State<MapProviderScreen> {
         ),
         centerTitle: true,
       ),
-      body: Consumer<MapProviderModel>(
+      body: Consumer<MapProviderViewModel>(
         builder: (context, model, _) {
           if (!model.isInitialized) {
             return const Center(child: CircularProgressIndicator());
           }
 
-          const providers = MapProviderModel.providers;
+          const providers = MapProviderInfo.defaultProviders;
 
           return ListView(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -92,7 +95,8 @@ class _MapProviderScreenState extends State<MapProviderScreen> {
                     children: List.generate(providers.length, (index) {
                       final provider = providers[index];
                       final isLast = index == providers.length - 1;
-                      final isSelected = model.selectedProviderId == provider.id;
+                      final isSelected =
+                          model.selectedProviderId == provider.id;
                       final isExpanded = _expandedProviderId == provider.id;
 
                       return Column(
@@ -107,12 +111,14 @@ class _MapProviderScreenState extends State<MapProviderScreen> {
                               if (provider.requiresKey) {
                                 // Переключаем показ поля ввода
                                 setState(() {
-                                  _expandedProviderId = isExpanded ? null : provider.id;
+                                  _expandedProviderId =
+                                      isExpanded ? null : provider.id;
                                 });
                               } else {
                                 model.selectProvider(provider.id);
                                 setState(() {
-                                  _expandedProviderId = null; // закрываем любое открытое поле
+                                  _expandedProviderId =
+                                      null; // закрываем любое открытое поле
                                 });
                               }
                             },
@@ -131,16 +137,23 @@ class _MapProviderScreenState extends State<MapProviderScreen> {
                                       model.apiKeys[provider.id] ?? '',
                                     ),
                                     onSubmitted: (key) async {
-                                      if (_getFormKey(provider.id).currentState?.validate() ?? false) {
-                                        await model.setApiKey(provider.id, key.trim());
+                                      if (_getFormKey(provider.id)
+                                              .currentState
+                                              ?.validate() ??
+                                          false) {
+                                        await model.setApiKey(
+                                            provider.id, key.trim());
                                         setState(() {
                                           _expandedProviderId = null;
                                         });
                                         if (mounted) {
-                                          ScaffoldMessenger.of(context).showSnackBar(
+                                          ScaffoldMessenger.of(context)
+                                              .showSnackBar(
                                             SnackBar(
-                                              content: Text('${provider.name} успешно подключен'),
-                                              behavior: SnackBarBehavior.floating,
+                                              content: Text(
+                                                  '${provider.name} успешно подключен'),
+                                              behavior:
+                                                  SnackBarBehavior.floating,
                                             ),
                                           );
                                         }
@@ -209,7 +222,9 @@ class _ProviderTile extends StatelessWidget {
               child: Center(
                 child: FaIcon(
                   provider.icon,
-                  color: isSelected ? colors.primary : colors.onSurface.withValues(alpha: 0.6),
+                  color: isSelected
+                      ? colors.primary
+                      : colors.onSurface.withValues(alpha: 0.6),
                   size: 18,
                 ),
               ),
@@ -245,7 +260,8 @@ class _ProviderTile extends StatelessWidget {
                 if (isSelected)
                   Padding(
                     padding: const EdgeInsets.only(right: 8.0),
-                    child: FaIcon(FontAwesomeIcons.check, color: colors.primary, size: 16),
+                    child: FaIcon(FontAwesomeIcons.check,
+                        color: colors.primary, size: 16),
                   ),
                 if (provider.requiresKey)
                   FaIcon(
@@ -300,16 +316,20 @@ class _ApiKeyInput extends StatelessWidget {
                   decoration: InputDecoration(
                     hintText: 'Введите API-ключ',
                     labelText: 'API-ключ',
-                    labelStyle: TextStyle(color: colors.onSurface.withValues(alpha: 0.6)),
+                    labelStyle: TextStyle(
+                        color: colors.onSurface.withValues(alpha: 0.6)),
                     floatingLabelStyle: TextStyle(color: colors.primary),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 12),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: colors.onSurface.withValues(alpha: 0.12)),
+                      borderSide: BorderSide(
+                          color: colors.onSurface.withValues(alpha: 0.12)),
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: colors.onSurface.withValues(alpha: 0.12)),
+                      borderSide: BorderSide(
+                          color: colors.onSurface.withValues(alpha: 0.12)),
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -327,12 +347,14 @@ class _ApiKeyInput extends StatelessWidget {
                 style: FilledButton.styleFrom(
                   backgroundColor: colors.primary,
                   foregroundColor: colors.onPrimary,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                 ),
                 onPressed: () => onSubmitted(controller.text),
                 child: const Text('Подключиться',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                    style:
+                        TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
               ),
             ),
           ],

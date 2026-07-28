@@ -8,19 +8,19 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_map_tile_caching/flutter_map_tile_caching.dart';
 
 import 'viewmodels/map_viewmodel.dart';
-import 'viewmodels/map_provider_model.dart';
+import 'viewmodels/provider_viewmodel.dart';
 import './app_theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-    if (!kIsWeb) {
+  if (!kIsWeb) {
     await FMTCObjectBoxBackend().initialise();
     await const FMTCStore('mapStore').manage.create();
-    } else {
+  } else {
     debugPrint('Запуск в Web - FMTC отключен');
-    }
-    
+  }
+
   // Проверка онбординга
   final prefs = await SharedPreferences.getInstance();
   final onboardingDone = prefs.getBool('onboarding_done') ?? false;
@@ -40,16 +40,13 @@ class MapFiApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => MapViewModel()),
-        ChangeNotifierProvider(create: (_) => MapProviderModel()..init()),
+        ChangeNotifierProvider(create: (_) => MapProviderViewModel()..init()),
       ],
       child: MaterialApp(
-        title: 'MapFi',
-        debugShowCheckedModeBanner: false,
-        
-        theme: AppTheme.build(colorScheme),
-        
-         home: SplashScreen(showOnboarding: showOnboarding)
-      ),
+          title: 'MapFi',
+          debugShowCheckedModeBanner: false,
+          theme: AppTheme.build(colorScheme),
+          home: SplashScreen(showOnboarding: showOnboarding)),
     );
   }
 }

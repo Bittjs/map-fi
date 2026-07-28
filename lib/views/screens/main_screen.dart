@@ -12,7 +12,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../models/wifi_point.dart';
 import '../../services/sync_service.dart';
 import '../../viewmodels/map_viewmodel.dart';
-import '../../viewmodels/map_provider_model.dart';
+import '../../viewmodels/provider_viewmodel.dart';
 import '../widgets/wifi_marker_widget.dart';
 import '../../exceptions/data_exception.dart';
 import '../widgets/bottom_sheet_widget.dart';
@@ -345,6 +345,8 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
       body: Consumer<MapViewModel>(
         builder: (context, viewModel, _) {
           if (viewModel.lastError != null) {
+            'package:font_awesome_flutter/font_awesome_flutter.dart';
+
             WidgetsBinding.instance.addPostFrameCallback((_) {
               _showErrorDialog(viewModel.lastError!);
               viewModel.clearError();
@@ -386,7 +388,7 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
 
   Widget _buildMap(MapViewModel viewModel) {
     final userLatLng = viewModel.userLatLng;
-    final providerModel = context.watch<MapProviderModel>();
+    final providerModel = context.watch<MapProviderViewModel>();
     final currentProvider = providerModel.currentProvider;
     final urlTemplate = providerModel.currentUrlTemplate;
 
@@ -632,6 +634,11 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
           label: Text('Провайдер карты',
               style: TextStyle(color: theme.colorScheme.onSurface)),
         ),
+        NavigationDrawerDestination(
+          icon: const FaIcon(FontAwesomeIcons.map, size: 20),
+          label: Text('Предпочтения',
+              style: TextStyle(color: theme.colorScheme.onSurface)),
+        ),
       ],
       onDestinationSelected: (index) {
         // Карта соответствия индексов Drawer и строковых команд
@@ -642,7 +649,8 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
           'sync_url',
           'sync',
           'location',
-          'provider'
+          'provider',
+          'preferences'
         ];
         _handleMenuAction(actions[index], viewModel);
       },
