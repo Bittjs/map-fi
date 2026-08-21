@@ -17,9 +17,14 @@ import 'package:network_info_plus/network_info_plus.dart';
 import 'package:uuid/uuid.dart';
 
 import '../exceptions/data_exception.dart';
+import '../models/app_regions.dart';
+import '../models/outbox_entry.dart';
+import '../models/point_stats.dart';
 import '../models/wifi_point.dart';
-import '../services/repository_service.dart';
-import '../services/sync_service.dart';
+import '../services/point_store.dart';
+import '../services/point_store_factory.dart';
+import '../services/device_identity_service.dart';
+import '../services/api_client.dart';
 
 // ---------------------------------------------------------------------------
 // Тип сортировки
@@ -27,18 +32,81 @@ import '../services/sync_service.dart';
 
 enum SortType { nameTop, nameBottom, ratingTop, ratingBottom }
 
+/// Близость пользователя к точке: подключён (connected),
+/// рядом, но не подключён (nearby), или далеко (far).
+enum PointProximity { connected, nearby, far }
+
 // ---------------------------------------------------------------------------
 // ViewModel
 // ---------------------------------------------------------------------------
 
 class MapViewModel extends ChangeNotifier {
-  MapViewModel() {
-    _repository = WiFiRepository();
-    _syncService = SyncService(_repository);
+  MapViewModel({
+    PointStore? store,
+    DeviceIdentityService? deviceIdentityService,
+    ApiClient? apiClient,
+  }) {
+    _store = store ?? createPointStore();
+    _deviceIdentityService = deviceIdentityService ?? DeviceIdentityService();
+    _apiClient = apiClient ?? ApiClient();
   }
 
-  late final WiFiRepository _repository;
-  late final SyncService _syncService;
+  late final PointStore _store;
+  late final DeviceIdentityService _deviceIdentityService;
+  late final ApiClient _apiClient;
+
+  /// Регион, с которым работает пользователь (по умолчанию Новосибирск, 54).
+  int _selectedRegionId = 54;
+  int get selectedRegionId => _selectedRegionId;
+
+  void setSelectedRegionId(int regionId) {
+    if (_selectedRegionId == regionId) return;
+    _selectedRegionId = regionId;
+    _applyFilterAndSort();
+  }
+
+  /// Роль пользователя (default / volunteer / admin). Определяет видимость
+  /// слоёв [datasetType]: default → public, volunteer → + volunteer_test,
+  /// admin → все слои.
+  String _role = 'default';
+  String get role => _role;
+
+  /// Устанавливает роль из [AuthSession.role] и пересчитывает видимость слоёв.
+  void setRole(String role) {
+    if (_role == role) return;
+    _role = role;
+    _applyFilterAndSort();
+  }
+
+  bool _canSeeDataset(String datasetType) {
+    switch (_role) {
+      case 'volunteer':
+        return datasetType == 'public' || datasetType == 'volunteer_test';
+      case 'admin':
+        return true;
+      default:
+        return datasetType == 'public';
+    }
+  }
+
+  /// Список регионов для селектора. Стартует со встроенного справочника
+  /// [kAppRegions] и обновляется с бэкенда ([ApiClient.fetchRegions]).
+  List<AppRegion> _regions = kAppRegions;
+  List<AppRegion> get regions => _regions;
+
+  /// Кэшированный user_id для ролевой синхронизации (роль влияет на слои).
+  String? _userId;
+
+  Future<void> refreshRegions() async {
+    try {
+      final regions = await _apiClient.fetchRegions();
+      if (regions.isEmpty) return;
+      _regions = regions;
+      notifyListeners();
+    } catch (_) {
+      // сервер недоступен — остаёмся на встроенном списке
+    }
+  }
 
   // Контроллер анимированной карты (инициализируется из StatefulWidget)
   late AnimatedMapController mapController;
@@ -92,12 +160,13 @@ class MapViewModel extends ChangeNotifier {
   Future<void> init() async {
     await _loadFromStorage();
     await _fetchUserLocation();
+    unawaited(refreshRegions());
   }
 
   Future<void> _loadFromStorage() async {
     _setLoading(true);
     try {
-      final points = await _repository.loadPoints();
+      final points = await _store.loadPoints();
       _allPoints = points;
       _applyFilterAndSort();
       if (points.isNotEmpty) _isFileLoaded = true;
@@ -146,6 +215,10 @@ class MapViewModel extends ChangeNotifier {
       }
     }
 
+    // Получаем или лениво генерируем стойкий идентификатор устройства ТОЛЬКО в момент добавления новой точки
+    final identity = await _deviceIdentityService.getOrCreateDeviceIdentity();
+    debugPrint('Идентификатор устройства (SHA-256 hex) для авторизации: ${identity.hexHash}');
+
     final point = WiFiPoint(
       id: const Uuid().v4(),
       name: ssid,
@@ -159,8 +232,50 @@ class MapViewModel extends ChangeNotifier {
 
     _applyFilterAndSort();
 
-    await _repository.savePoints(_allPoints);
+    // Локально точка добавлена. Пытаемся синхронизировать с бэкендом:
+    // регистрируем устройство (только теперь) и создаём точку на сервере.
+    // При отсутствии сети точка остаётся локально и попадает в push-очередь.
+    try {
+      final session = await _apiClient.registerDevice(identity.rawId);
+      final created = await _apiClient.createPoint(
+        userId: session.userId,
+        ssid: point.name,
+        password: point.password,
+        lat: point.lat,
+        lon: point.lng,
+        datasetType: point.datasetType,
+      );
+      setRole(session.role);
+      _userId = session.userId;
 
+      // Заменяем локальную копию на серверную: у неё корректный region_id
+      // (бэкенд определил регион через PostGIS).
+      final serverPoint = created.toWiFiPoint();
+      final index = _allPoints.indexWhere((p) => p.id == point.id);
+      if (index >= 0) {
+        _allPoints[index] = serverPoint;
+      } else {
+        _allPoints.add(serverPoint);
+      }
+      await _store.upsertPoint(serverPoint);
+      _applyFilterAndSort();
+    } catch (e) {
+      await _store.enqueueOutbox(OutboxEntry(
+        kind: OutboxEntry.kindPoint,
+        payload: {
+          'local_id': point.id,
+          'ssid': point.name,
+          'password': point.password,
+          'lat': point.lat,
+          'lon': point.lng,
+          'dataset_type': point.datasetType,
+        },
+        createdAt: DateTime.now(),
+      ));
+      debugPrint('Сеть недоступна — точка добавлена в очередь отправки: $e');
+    }
+
+    await _store.savePoints(_allPoints);
     _lastError = null;
 
     notifyListeners();
@@ -192,10 +307,10 @@ class MapViewModel extends ChangeNotifier {
 
     _setLoading(true);
     try {
-      final points = _repository.parseFromBytes(bytes);
+      final points = _store.parseFromBytes(bytes);
       _allPoints = points;
       _applyFilterAndSort();
-      await _repository.savePoints(_allPoints);
+      await _store.savePoints(_allPoints);
       _isFileLoaded = true;
       _lastError = null;
     } on DataException catch (e) {
@@ -235,28 +350,128 @@ class MapViewModel extends ChangeNotifier {
   }
 
   // ===========================================================================
-  // GitHub синхронизация
+  // Серверная синхронизация
   // ===========================================================================
 
-  SyncService get syncService => _syncService;
-
-  Future<SyncResult> synchronize() async {
+  /// Полная синхронизация региона: сначала отправка оффлайн-очереди,
+  /// затем дельта-загрузка изменений с сервера.
+  ///
+  /// Возвращает количество обработанных записей; при недоступности сервера — null.
+  Future<int?> synchronizeRegion(int regionId) async {
     _setLoading(true);
     try {
-      return await _syncService.synchronize();
+      final pushed = await pushPending();
+      final pulled = await _pullFromServer(regionId: regionId);
+      if (pulled == null) {
+        // ошибка загрузки — сохраняем _lastError из _pullFromServer
+        return null;
+      }
+      _lastError = null;
+      return pushed + pulled;
     } finally {
       _setLoading(false);
     }
   }
 
-  Future<void> applySyncResult(SyncResult result) async {
-    if (result.status != SyncStatus.newDataAvailable) return;
-    _allPoints = result.points;
-    _applyFilterAndSort();
-    await _repository.savePoints(_allPoints);
-    _isFileLoaded = true;
-    _lastError = null;
-    notifyListeners();
+  /// Отправка всех записей из оффлайн-очереди ([OutboxEntry]).
+  ///
+  /// При успешном создании точки локальная копия заменяется на серверную
+  /// (чтобы при следующей загрузке не возникло дублей из-за серверного id).
+  Future<int> pushPending() async {
+    final entries = await _store.pendingOutbox();
+    if (entries.isEmpty) return 0;
+
+    final identity = await _deviceIdentityService.getOrCreateDeviceIdentity();
+    final session = await _apiClient.registerDevice(identity.rawId);
+    setRole(session.role);
+    _userId = session.userId;
+
+    var sent = 0;
+    for (final entry in entries) {
+      try {
+        if (entry.kind == OutboxEntry.kindPoint) {
+          final p = entry.payload;
+          final created = await _apiClient.createPoint(
+            userId: session.userId,
+            ssid: p['ssid'] as String,
+            password: (p['password'] as String?) ?? '',
+            lat: (p['lat'] as num).toDouble(),
+            lon: (p['lon'] as num).toDouble(),
+            datasetType: (p['dataset_type'] as String?) ?? 'public',
+          );
+
+          final localId = p['local_id'] as String?;
+          if (localId != null) {
+            await _store.removePoint(localId);
+          }
+          await _store.upsertPoint(created.toWiFiPoint());
+        } else if (entry.kind == OutboxEntry.kindFeedback) {
+          await _apiClient.createFeedback(
+            userId: session.userId,
+            pointId: entry.payload['ap_id'] as String,
+            regionId: (entry.payload['region_id'] as num).toInt(),
+            type: entry.payload['type'] as String,
+          );
+        }
+        await _store.removeOutbox(entry.id!);
+        sent++;
+      } on ApiException catch (e) {
+        // Неисправимые ошибки (валидация/бан/нет точки) — дропаем запись.
+        // Сетевые сбои оставляем в очереди и останавливаем цикл.
+        final status = e.statusCode;
+        if (status != null && status >= 400 && status < 500) {
+          await _store.removeOutbox(entry.id!);
+        } else {
+          break;
+        }
+      } catch (_) {
+        break;
+      }
+    }
+    return sent;
+  }
+
+  /// Дельта-загрузка точек региона по watermark последней синхронизации.
+  ///
+  /// Применяет [updated_at]-смещения, удаляет локальные точки, помеченные
+  /// на сервере `is_deleted`, и сохраняет новый watermark.
+  /// Возвращает количество полученных изменений; при ошибке — null.
+  Future<int?> _pullFromServer({required int regionId}) async {
+    try {
+      final since = await _store.lastSync(regionId);
+      final sync = await _apiClient.syncPoints(
+        regionId: regionId,
+        since: since,
+        userId: _userId,
+      );
+
+      final upserts = <WiFiPoint>[];
+      final deletes = <String>[];
+      for (final p in sync.points) {
+        if (p.isDeleted) {
+          deletes.add(p.id);
+        } else {
+          upserts.add(p.toWiFiPoint());
+        }
+      }
+
+      await _store.upsertPoints(upserts);
+      for (final id in deletes) {
+        await _store.removePoint(id);
+      }
+      await _store.setLastSync(regionId, sync.serverTime);
+
+      _allPoints = await _store.loadPoints();
+      _applyFilterAndSort();
+      if (_allPoints.isNotEmpty) _isFileLoaded = true;
+      return sync.points.length;
+    } on ApiException catch (e) {
+      _lastError = 'Ошибка синхронизации с сервером: ${e.message}';
+      return null;
+    } catch (e) {
+      _lastError = 'Сервер недоступен: $e';
+      return null;
+    }
   }
 
   // ===========================================================================
@@ -274,7 +489,11 @@ class MapViewModel extends ChangeNotifier {
   }
 
   void _applyFilterAndSort() {
-    List<WiFiPoint> filtered = _allPoints;
+    List<WiFiPoint> filtered = List.of(_allPoints)
+        .where((p) =>
+            _canSeeDataset(p.datasetType) &&
+            (p.regionId == 0 || p.regionId == _selectedRegionId))
+        .toList();
 
     if (_searchQuery.isNotEmpty) {
       final q = _searchQuery.toLowerCase();
@@ -330,10 +549,13 @@ class MapViewModel extends ChangeNotifier {
   // Рейтинг / верификация
   // ===========================================================================
 
-  /// Проверяет точку: возвращает true если текущий SSID совпадает с именем
-  /// точки И пользователь находится в радиусе 50 метров.
-  Future<bool> verifyPoint(WiFiPoint point) async {
-    if (_userPosition == null) return false;
+  /// Определяет близость пользователя к точке:
+/// - [PointProximity.connected] — подключён к этой сети (SSID совпал,
+///   находимся в радиусе 50 м);
+/// - [PointProximity.nearby] — рядом, но не подключён;
+/// - [PointProximity.far] — далеко (или геолокация недоступна).
+  Future<PointProximity> proximityOf(WiFiPoint point) async {
+    if (_userPosition == null) return PointProximity.far;
 
     final distanceMeters = Geolocator.distanceBetween(
       _userPosition!.latitude,
@@ -342,22 +564,91 @@ class MapViewModel extends ChangeNotifier {
       point.lng,
     );
 
-    if (distanceMeters > 50) return false;
+    if (distanceMeters > 50) return PointProximity.far;
 
     // Проверяем SSID через wifi_info_flutter
-    // (плагин требует android.permission.ACCESS_FINE_LOCATION)
     try {
-      // Импортируем динамически чтобы не ломать компиляцию на платформах
-      // без поддержки wifi_info
       final info = WifiInfoWrapper();
       final ssid = await info.getWifiName();
-      if (ssid == null) return false;
+      if (ssid == null) return PointProximity.nearby;
       final cleanSsid = ssid.replaceAll('"', '');
-      return cleanSsid == point.name;
+      if (cleanSsid == point.name) return PointProximity.connected;
     } catch (_) {
-      return false;
+      return PointProximity.nearby;
+    }
+    return PointProximity.nearby;
+  }
+
+  /// Верифицирует точку: возвращает true если пользователь подключён к сети
+  /// точки (см. [proximityOf]). При успехе отправляет на бэкенд отзыв
+  /// типа [FeedbackTypes.verify] (в оффлайне — в push-очередь).
+  Future<bool> verifyPoint(WiFiPoint point) async {
+    final proximity = await proximityOf(point);
+    if (proximity != PointProximity.connected) return false;
+
+    await submitFeedback(point, FeedbackTypes.verify);
+    return true;
+  }
+
+  /// Загружает агрегированные отзывы по точке за период [days].
+  /// При недоступности сервера возвращает пустую статистику.
+  Future<PointStats> loadPointStats(WiFiPoint point, {int days = 30}) async {
+    try {
+      return await _apiClient.fetchPointStats(
+        pointId: point.id,
+        regionId: point.regionId,
+        days: days,
+      );
+    } catch (_) {
+      return PointStats.empty;
     }
   }
+
+  /// Гарантирует наличие стойкого идентификатора устройства и возвращает
+  /// его rawId (Widevine hex на Android, UUID на прочих платформах).
+  /// Используется в Drawer для отображения токена (копирование/разбан в БД).
+  Future<String> getOrCreateDeviceToken() async {
+    final identity = await _deviceIdentityService.getOrCreateDeviceIdentity();
+    return identity.rawId;
+  }
+
+  /// Отправляет отзыв по точке на бэкенд.
+  ///
+  /// При недоступности сервера (сетевой сбой/5xx) отзыв попадает в
+  /// push-очередь [OutboxEntry.kindFeedback]; ошибки валидации (4xx, например
+  /// несуществующая точка) отбрасываются.
+  Future<void> submitFeedback(WiFiPoint point, String type) async {
+    try {
+      final identity = await _deviceIdentityService.getOrCreateDeviceIdentity();
+      final session = await _apiClient.registerDevice(identity.rawId);
+      setRole(session.role);
+      _userId = session.userId;
+      await _apiClient.createFeedback(
+        userId: session.userId,
+        pointId: point.id,
+        regionId: point.regionId,
+        type: type,
+      );
+    } on ApiException catch (e) {
+      final status = e.statusCode;
+      if (status == null || status < 400 || status >= 500) {
+        await _enqueueFeedback(point, type);
+      }
+    } catch (_) {
+      await _enqueueFeedback(point, type);
+    }
+  }
+
+  Future<void> _enqueueFeedback(WiFiPoint point, String type) =>
+      _store.enqueueOutbox(OutboxEntry(
+        kind: OutboxEntry.kindFeedback,
+        payload: {
+          'ap_id': point.id,
+          'region_id': point.regionId,
+          'type': type,
+        },
+        createdAt: DateTime.now(),
+      ));
 
   // ===========================================================================
   // Фокус камеры с вертикальным смещением (исправление Ошибки 2)

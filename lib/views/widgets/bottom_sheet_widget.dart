@@ -5,8 +5,13 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:provider/provider.dart';
 import '../../models/wifi_point.dart';
 import '../../viewmodels/map_viewmodel.dart';
+import 'point_feedback_bar.dart';
 
-class WiFiBottomSheet extends StatelessWidget {
+/// Примерная высота одного тайла списка (используется для скролла к выбранной
+/// точке, когда карточка фидбека ещё не построена в виртуализированном списке).
+const double _kTileHeight = 72;
+
+class WiFiBottomSheet extends StatefulWidget {
   final DraggableScrollableController controller;
   final WiFiPoint? selectedPoint;
   final Function(WiFiPoint) onPointTap;
@@ -19,29 +24,69 @@ class WiFiBottomSheet extends StatelessWidget {
   });
 
   @override
+  State<WiFiBottomSheet> createState() => _WiFiBottomSheetState();
+}
+
+class _WiFiBottomSheetState extends State<WiFiBottomSheet> {
+  /// Точка, для которой уже был выполнен скролл/показ карточки.
+  WiFiPoint? _lastSelected;
+
+  /// Контроллер списка (передаётся из DraggableScrollableSheet).
+  ScrollController? _listController;
+
+  @override
+  void didUpdateWidget(WiFiBottomSheet oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.selectedPoint != null && widget.selectedPoint != _lastSelected) {
+      _lastSelected = widget.selectedPoint;
+      WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToSelected());
+    }
+  }
+
+  void _scrollToSelected() {
+    if (!mounted) return;
+    final controller = _listController;
+    if (controller == null || !controller.hasClients) return;
+    final viewModel = context.read<MapViewModel>();
+    final point = widget.selectedPoint;
+    if (point == null) return;
+    final index = viewModel.points.indexWhere((p) => p == point);
+    if (index < 0) return;
+    final target = (index * _kTileHeight)
+        .clamp(0.0, controller.position.maxScrollExtent);
+    controller.animateTo(
+      target,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOut,
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
 
     return DraggableScrollableSheet(
       key: const PageStorageKey<String>('bottom_sheet'),
-      controller: controller,
+      controller: widget.controller,
       initialChildSize: 0.3,
       minChildSize: 0.12,
       maxChildSize: 0.85,
       snap: false,
       builder: (context, scrollController) {
+        _listController = scrollController;
         return Consumer<MapViewModel>(
           builder: (context, viewModel, _) {
             return GestureDetector(
               onVerticalDragUpdate: (details) {
-                final newSize = controller.size -
+                final newSize = widget.controller.size -
                     details.primaryDelta! / MediaQuery.of(context).size.height;
-                controller.jumpTo(newSize.clamp(0.12, 0.85));
+                widget.controller.jumpTo(newSize.clamp(0.12, 0.85));
               },
               child: Material(
                 elevation: 0,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(12)),
                 color: colors.surface,
                 child: Column(
                   children: [
@@ -58,15 +103,8 @@ class WiFiBottomSheet extends StatelessWidget {
                                 thickness: 6,
                                 radius: const Radius.circular(12),
                                 interactive: true,
-                                child: ListView.builder(
-                                  padding: EdgeInsets.zero,
-                                  controller: scrollController,
-                                  itemCount: viewModel.points.length,
-                                  itemBuilder: (context, index) {
-                                    final point = viewModel.points[index];
-                                    return _buildPointTile(context, point, viewModel);
-                                  },
-                                ),
+                                child: _buildPointList(
+                                    context, viewModel, scrollController),
                               ),
                       ),
                     ),
@@ -76,6 +114,33 @@ class WiFiBottomSheet extends StatelessWidget {
             );
           },
         );
+      },
+    );
+  }
+
+  Widget _buildPointList(
+      BuildContext context, MapViewModel viewModel, ScrollController controller) {
+    final point = widget.selectedPoint;
+    final selectedIndex =
+        point == null ? -1 : viewModel.points.indexWhere((p) => p == point);
+
+    return ListView.builder(
+      padding: EdgeInsets.zero,
+      controller: controller,
+      itemCount: viewModel.points.length + (selectedIndex >= 0 ? 1 : 0),
+      itemBuilder: (context, index) {
+        if (selectedIndex >= 0 && index == selectedIndex + 1) {
+          return PointFeedbackBar(
+            key: ValueKey('feedback_${point!.id}'),
+            point: point,
+            viewModel: viewModel,
+          );
+        }
+        final pointIndex = (selectedIndex >= 0 && index > selectedIndex)
+            ? index - 1
+            : index;
+        final item = viewModel.points[pointIndex];
+        return _buildPointTile(context, item, viewModel);
       },
     );
   }
@@ -125,10 +190,15 @@ class WiFiBottomSheet extends StatelessWidget {
                 child: FaIcon(FontAwesomeIcons.sort, size: 12),
               ),
               items: const [
-                DropdownMenuItem(value: SortType.nameTop, child: Text('от А до Я')),
-                DropdownMenuItem(value: SortType.nameBottom, child: Text('от Я до A')),
-                DropdownMenuItem(value: SortType.ratingTop, child: Text('Сначала Лучшие')),
-                DropdownMenuItem(value: SortType.ratingBottom, child: Text('Сначала Худшие')),
+                DropdownMenuItem(
+                    value: SortType.nameTop, child: Text('от А до Я')),
+                DropdownMenuItem(
+                    value: SortType.nameBottom, child: Text('от Я до A')),
+                DropdownMenuItem(
+                    value: SortType.ratingTop, child: Text('Сначала Лучшие')),
+                DropdownMenuItem(
+                    value: SortType.ratingBottom,
+                    child: Text('Сначала Худшие')),
               ],
               onChanged: (value) {
                 if (value != null) viewModel.changeSort(value);
@@ -140,8 +210,9 @@ class WiFiBottomSheet extends StatelessWidget {
     );
   }
 
-  Widget _buildPointTile(BuildContext context, WiFiPoint point, MapViewModel viewModel) {
-    final isSelected = point == selectedPoint;
+  Widget _buildPointTile(
+      BuildContext context, WiFiPoint point, MapViewModel viewModel) {
+    final isSelected = point == widget.selectedPoint;
     final theme = Theme.of(context);
 
     return ListTile(
@@ -151,12 +222,18 @@ class WiFiBottomSheet extends StatelessWidget {
         width: 40,
         height: 40,
         decoration: BoxDecoration(
-          color: isSelected ? theme.colorScheme.primary : theme.colorScheme.primary.withValues(alpha: 0.2),
+          color: isSelected
+              ? theme.colorScheme.primary
+              : theme.colorScheme.primary.withValues(alpha: 0.2),
           shape: BoxShape.circle,
         ),
         child: Icon(
-          point.password.isEmpty ? Icons.wifi_tethering_rounded : Icons.wifi_rounded,
-          color: isSelected ? theme.colorScheme.surface : theme.colorScheme.primary,
+          point.password.isEmpty
+              ? Icons.wifi_tethering_rounded
+              : Icons.wifi_rounded,
+          color: isSelected
+              ? theme.colorScheme.surface
+              : theme.colorScheme.primary,
           size: 20,
         ),
       ),
@@ -171,29 +248,12 @@ class WiFiBottomSheet extends StatelessWidget {
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),
-      trailing: PopupMenuButton<String>(
-        icon: const FaIcon(FontAwesomeIcons.chevronRight, size: 20),
-        itemBuilder: (_) => [
-          const PopupMenuItem(
-            value: 'verify',
-            child: Text('Верифицировать'),
-          ),
-        ],
-        onSelected: (value) async {
-          if (value == 'verify') {
-            final ok = await viewModel.verifyPoint(point);
-            if (!context.mounted) return;
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(ok
-                    ? 'Вы подключены к ${point.name} - точка верифицирована!'
-                    : 'Не удалось верифицировать: проверьте SSID и расстояние до точки.'),
-              ),
-            );
-          }
-        },
+      trailing: FaIcon(
+        FontAwesomeIcons.chevronRight,
+        size: 18,
+        color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
       ),
-      onTap: () => onPointTap(point),
+      onTap: () => widget.onPointTap(point),
     );
   }
 

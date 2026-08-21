@@ -2,6 +2,7 @@
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_map_animations/flutter_map_animations.dart';
 import 'package:flutter_map_tile_caching/flutter_map_tile_caching.dart';
@@ -10,11 +11,9 @@ import 'package:provider/provider.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 import '../../models/wifi_point.dart';
-import '../../services/sync_service.dart';
 import '../../viewmodels/map_viewmodel.dart';
 import '../../viewmodels/provider_viewmodel.dart';
 import '../widgets/wifi_marker_widget.dart';
-import '../../exceptions/data_exception.dart';
 import '../widgets/bottom_sheet_widget.dart';
 import '../widgets/side_panel_widget.dart';
 import 'map_provider_screen.dart';
@@ -105,9 +104,6 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
           );
         }
         break;
-      case 'sync_url':
-        await _showSyncUrlDialog();
-        break;
       case 'sync':
         await _synchronize();
         break;
@@ -181,114 +177,23 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
 
   Future<void> _synchronize() async {
     final viewModel = context.read<MapViewModel>();
-    final result = await viewModel.synchronize();
+    final count = await viewModel.synchronizeRegion(viewModel.selectedRegionId);
     if (!mounted) return;
 
-    switch (result.status) {
-      case SyncStatus.notModified:
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('База данных актуальна.'),
-            behavior: SnackBarBehavior.floating,
+    // При успехе показываем результат; ошибки отображаются встроенным диалогом
+    // (через viewModel.lastError при пересборке).
+    if (count != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            count > 0
+                ? 'Синхронизация завершена. Изменений: $count'
+                : 'База данных актуальна.',
           ),
-        );
-        break;
-
-      case SyncStatus.newDataAvailable:
-        _showSyncDialog(result, viewModel);
-        break;
-
-      case SyncStatus.error:
-        String errorMessage = result.errorMessage ?? 'Ошибка синхронизации';
-
-        if (result.exception is DataException) {
-          errorMessage =
-              'Ошибка структуры файла: ${(result.exception as DataException).message}';
-        }
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(errorMessage),
-            backgroundColor: Theme.of(context).colorScheme.error,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-        break;
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     }
-  }
-
-  void _showSyncDialog(SyncResult result, MapViewModel viewModel) {
-    showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Доступно обновление'),
-        content: Text(
-          'На сервере найдено ${result.points.length} точек. '
-          'Обновить локальную базу?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Отмена'),
-          ),
-          FilledButton(
-            onPressed: () async {
-              Navigator.of(ctx).pop();
-              await viewModel.applySyncResult(result);
-            },
-            child: const Text('Обновить'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _showSyncUrlDialog() async {
-    final viewModel = context.read<MapViewModel>();
-    final current = await viewModel.syncService.getSyncUrl() ?? '';
-    if (!mounted) return;
-
-    final controller = TextEditingController(text: current);
-    await showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('URL репозитория'),
-        content: TextField(
-          controller: controller,
-          decoration: const InputDecoration(
-            hintText: 'https://github.com/user/repo/blob/main/points.json',
-            border: OutlineInputBorder(),
-          ),
-        ),
-        actions: [
-          TextButton(
-            style: TextButton.styleFrom(
-                shape: const RoundedRectangleBorder(
-                    borderRadius: BorderRadius.only(
-                        topLeft: Radius.circular(24),
-                        topRight: Radius.circular(12),
-                        bottomLeft: Radius.circular(24),
-                        bottomRight: Radius.circular(12)))),
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Отмена'),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(
-                shape: const RoundedRectangleBorder(
-                    borderRadius: BorderRadius.only(
-                        topLeft: Radius.circular(12),
-                        topRight: Radius.circular(24),
-                        bottomLeft: Radius.circular(12),
-                        bottomRight: Radius.circular(24)))),
-            onPressed: () async {
-              await viewModel.syncService.setSyncUrl(controller.text.trim());
-              if (ctx.mounted) Navigator.of(ctx).pop();
-            },
-            child: const Text('Сохранить'),
-          ),
-        ],
-      ),
-    );
   }
 
   Future<void> _showAddPointDialog(MapViewModel viewModel) async {
@@ -356,8 +261,6 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
       body: Consumer<MapViewModel>(
         builder: (context, viewModel, _) {
           if (viewModel.lastError != null) {
-            'package:font_awesome_flutter/font_awesome_flutter.dart';
-
             WidgetsBinding.instance.addPostFrameCallback((_) {
               _showErrorDialog(viewModel.lastError!);
               viewModel.clearError();
@@ -526,104 +429,115 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
             ),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Поиск
-                  Expanded(
-                    child: Container(
-                      height: 45,
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.surface,
-                        borderRadius: const BorderRadius.only(
-                          topLeft: Radius.circular(24),
-                          topRight: Radius.circular(12),
-                          bottomLeft: Radius.circular(24),
-                          bottomRight: Radius.circular(12),
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: theme.colorScheme.onSurface
-                                .withValues(alpha: 0.2),
-                            blurRadius: 0,
-                            offset: const Offset(0, 3),
-                          ),
-                        ],
-                      ),
-                      child: TextField(
-                        controller: _searchController,
-                        style: TextStyle(color: theme.colorScheme.onSurface),
-                        decoration: InputDecoration(
-                          hintText: 'Поиск сети',
-                          hintStyle:
-                              TextStyle(color: theme.colorScheme.onSurface),
-                          prefixIcon: Padding(
-                            padding:
-                                const EdgeInsets.only(left: 16.0, right: 12.0),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                FaIcon(
-                                  FontAwesomeIcons.magnifyingGlass,
-                                  size: 18,
-                                  color: theme.colorScheme.onSurface
-                                      .withValues(alpha: 0.8),
-                                ),
-                              ],
+                  Row(
+                    children: [
+                      // Поиск
+                      Expanded(
+                        child: Container(
+                          height: 45,
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.surface,
+                            borderRadius: const BorderRadius.only(
+                              topLeft: Radius.circular(24),
+                              topRight: Radius.circular(12),
+                              bottomLeft: Radius.circular(24),
+                              bottomRight: Radius.circular(12),
                             ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: theme.colorScheme.onSurface
+                                    .withValues(alpha: 0.2),
+                                blurRadius: 0,
+                                offset: const Offset(0, 3),
+                              ),
+                            ],
                           ),
-                          suffixIcon: _searchController.text.isNotEmpty
-                              ? IconButton(
-                                  icon: FaIcon(
-                                    FontAwesomeIcons.xmark,
-                                    size: 16,
-                                    color:
-                                        Theme.of(context).colorScheme.onSurface,
-                                  ),
-                                  onPressed: () {
-                                    _searchController.clear();
-                                    viewModel.setSearchQuery('');
-                                  },
-                                )
-                              : null,
-                          border: InputBorder.none,
-                          contentPadding:
-                              const EdgeInsets.symmetric(vertical: 14),
+                          child: TextField(
+                            controller: _searchController,
+                            style: TextStyle(
+                                color: theme.colorScheme.onSurface),
+                            decoration: InputDecoration(
+                              hintText: 'Поиск сети',
+                              hintStyle: TextStyle(
+                                  color: theme.colorScheme.onSurface),
+                              prefixIcon: Padding(
+                                padding: const EdgeInsets.only(
+                                    left: 16.0, right: 12.0),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    FaIcon(
+                                      FontAwesomeIcons.magnifyingGlass,
+                                      size: 18,
+                                      color: theme.colorScheme.onSurface
+                                          .withValues(alpha: 0.8),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              suffixIcon:
+                                  _searchController.text.isNotEmpty
+                                      ? IconButton(
+                                          icon: FaIcon(
+                                            FontAwesomeIcons.xmark,
+                                            size: 16,
+                                            color: Theme.of(context)
+                                                .colorScheme
+                                                .onSurface,
+                                          ),
+                                          onPressed: () {
+                                            _searchController.clear();
+                                            viewModel.setSearchQuery('');
+                                          },
+                                        )
+                                      : null,
+                              border: InputBorder.none,
+                              contentPadding: const EdgeInsets.symmetric(
+                                  vertical: 14),
+                            ),
+                            onChanged: viewModel.setSearchQuery,
+                          ),
                         ),
-                        onChanged: viewModel.setSearchQuery,
                       ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  // Кнопка вызова Drawer
-                  Container(
-                    height: 45,
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.surface,
-                      borderRadius: const BorderRadius.only(
-                        topLeft: Radius.circular(12),
-                        topRight: Radius.circular(24),
-                        bottomLeft: Radius.circular(12),
-                        bottomRight: Radius.circular(24),
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: theme.colorScheme.onSurface
-                              .withValues(alpha: 0.2),
-                          blurRadius: 0,
-                          offset: const Offset(0, 3),
+                      const SizedBox(width: 8),
+                      // Кнопка вызова Drawer
+                      Container(
+                        height: 45,
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.surface,
+                          borderRadius: const BorderRadius.only(
+                            topLeft: Radius.circular(12),
+                            topRight: Radius.circular(24),
+                            bottomLeft: Radius.circular(12),
+                            bottomRight: Radius.circular(24),
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: theme.colorScheme.onSurface
+                                  .withValues(alpha: 0.2),
+                              blurRadius: 0,
+                              offset: const Offset(0, 3),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
-                    child: IconButton(
-                      icon: const FaIcon(FontAwesomeIcons.ellipsisVertical,
-                          size: 18),
-                      tooltip: 'Меню управления',
-                      onPressed: () {
-                        _scaffoldKey.currentState?.openEndDrawer();
-                      },
-                    ),
+                        child: IconButton(
+                          icon: const FaIcon(FontAwesomeIcons.ellipsisVertical,
+                              size: 18),
+                          tooltip: 'Меню управления',
+                          onPressed: () {
+                            _scaffoldKey.currentState?.openEndDrawer();
+                          },
+                        ),
+                      ),
+                    ],
                   ),
+                  const SizedBox(height: 8),
+                  // Выбор региона
+                  _buildRegionSelector(viewModel),
                 ],
               ),
             ),
@@ -631,11 +545,85 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
         )));
   }
 
+  Widget _buildRegionSelector(MapViewModel viewModel) {
+    final theme = Theme.of(context);
+
+    return Container(
+      height: 40,
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: theme.colorScheme.onSurface.withValues(alpha: 0.2),
+            blurRadius: 0,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          FaIcon(
+            FontAwesomeIcons.mapLocationDot,
+            size: 14,
+            color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+          ),
+          const SizedBox(width: 8),
+          DropdownButton<int>(
+            value: viewModel.regions
+                    .any((r) => r.id == viewModel.selectedRegionId)
+                ? viewModel.selectedRegionId
+                : null,
+            underline: const SizedBox(),
+            isDense: true,
+            borderRadius: BorderRadius.circular(16),
+            dropdownColor: theme.colorScheme.surface,
+            iconEnabledColor:
+                theme.colorScheme.onSurface.withValues(alpha: 0.8),
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurface,
+              fontWeight: FontWeight.w600,
+            ),
+            items: viewModel.regions
+                .map((r) => DropdownMenuItem(value: r.id, child: Text(r.name)))
+                .toList(),
+            onChanged: _onRegionChanged,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _onRegionChanged(int? regionId) async {
+    if (regionId == null) return;
+    final viewModel = context.read<MapViewModel>();
+    final messenger = ScaffoldMessenger.of(context);
+    final regionName = viewModel.regions.firstWhere((r) => r.id == regionId).name;
+
+    viewModel.setSelectedRegionId(regionId);
+    final count = await viewModel.synchronizeRegion(regionId);
+    if (count == null) return; // ошибка отобразится диалогом через lastError
+
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          count > 0
+              ? 'Регион: $regionName. Загружено изменений: $count'
+              : 'Регион: $regionName. База актуальна.',
+        ),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
   Widget _buildNavigationDrawer(MapViewModel viewModel) {
     final theme = Theme.of(context);
 
     return NavigationDrawer(
       backgroundColor: theme.colorScheme.surface,
+      footer: _DeviceTokenFooter(viewModel: viewModel),
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(28, 32, 16, 16),
@@ -660,11 +648,6 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
         NavigationDrawerDestination(
           icon: const FaIcon(FontAwesomeIcons.download, size: 20),
           label: Text('Экспорт данных',
-              style: TextStyle(color: theme.colorScheme.onSurface)),
-        ),
-        NavigationDrawerDestination(
-          icon: const FaIcon(FontAwesomeIcons.link, size: 20),
-          label: Text('URL репозитория',
               style: TextStyle(color: theme.colorScheme.onSurface)),
         ),
         NavigationDrawerDestination(
@@ -694,7 +677,6 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
           'add',
           'import',
           'export',
-          'sync_url',
           'sync',
           'location',
           'provider',
@@ -702,6 +684,120 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
         ];
         _handleMenuAction(actions[index], viewModel);
       },
+    );
+  }
+}
+
+/// Футер Drawer: уникальный токен устройства (для копирования и разбана в БД).
+class _DeviceTokenFooter extends StatefulWidget {
+  final MapViewModel viewModel;
+
+  const _DeviceTokenFooter({required this.viewModel});
+
+  @override
+  State<_DeviceTokenFooter> createState() => _DeviceTokenFooterState();
+}
+
+class _DeviceTokenFooterState extends State<_DeviceTokenFooter> {
+  String? _token;
+  bool _loaded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.viewModel.getOrCreateDeviceToken().then((token) {
+      if (!mounted) return;
+      setState(() {
+        _token = token;
+        _loaded = true;
+      });
+    });
+  }
+
+  String _shorten(String token) => token.length <= 26
+      ? token
+      : '${token.substring(0, 12)}…${token.substring(token.length - 10)}';
+
+  Future<void> _copy() async {
+    final token = _token;
+    if (token == null) return;
+    await Clipboard.setData(ClipboardData(text: token));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Токен устройства скопирован')),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+
+    return Container(
+      width: double.infinity,
+      color: colors.surface,
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Divider(height: 1),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  FaIcon(
+                    FontAwesomeIcons.fingerprint,
+                    size: 16,
+                    color: colors.onSurface.withValues(alpha: 0.6),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Токен устройства',
+                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                          color: colors.onSurface,
+                          fontWeight: FontWeight.w600,
+                        ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              if (!_loaded)
+                const LinearProgressIndicator()
+              else
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        _shorten(_token!),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: colors.onSurface.withValues(alpha: 0.8),
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    IconButton(
+                      icon: const FaIcon(FontAwesomeIcons.copy, size: 14),
+                      tooltip: 'Скопировать',
+                      visualDensity: VisualDensity.compact,
+                      onPressed: _copy,
+                    ),
+                  ],
+                ),
+              Text(
+                'Токен привязан к устройству. При ошибочном бане найдите его в '
+                'users.device_token_hash (SHA-256) и снимите is_banned.',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: colors.onSurface.withValues(alpha: 0.5),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

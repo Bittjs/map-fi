@@ -147,6 +147,9 @@ local.properties
 # Coverage
 coverage/
 
+# Go server build output
+server/bin/
+
 # Symbols
 app.*.symbols
 
