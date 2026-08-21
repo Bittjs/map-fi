@@ -472,8 +472,9 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
               point: point.location,
               width: 80,
               height: 60,
+              rotate: true,
               child: WiFiMarkerWidget(
-                rotation: -_mapController.mapController.camera.rotationRad,
+                //rotation: -_mapController.mapController.camera.rotationRad,
                 point: point,
                 isHighlighted: point == _selectedPoint,
                 onTap: () => _focusOnPoint(point),

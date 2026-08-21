@@ -1,4 +1,4 @@
-package com.example.mapfi
+package ru.sonar.mapfi
 
 import io.flutter.embedding.android.FlutterActivity
 

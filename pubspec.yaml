@@ -1,9 +1,9 @@
 name: mapfi
-description: MapFi - Your Backup Plan
+description: MapFi - a Map with WiFi points, Your Backup Plan
 
 publish_to: 'none'
 
-version: 1.0.1+1
+version: 1.0.2+1
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
