@@ -5,8 +5,13 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:provider/provider.dart';
 import '../../models/wifi_point.dart';
 import '../../viewmodels/map_viewmodel.dart';
+import 'point_feedback_bar.dart';
 
-class WiFiSidePanel extends StatelessWidget {
+/// Примерная высота одного тайла списка (используется для скролла к выбранной
+/// точке, когда карточка фидбека ещё не построена в виртуализированном списке).
+const double _kTileHeight = 72;
+
+class WiFiSidePanel extends StatefulWidget {
   final WiFiPoint? selectedPoint;
   final Function(WiFiPoint) onPointTap;
 
@@ -15,6 +20,47 @@ class WiFiSidePanel extends StatelessWidget {
     required this.onPointTap,
     this.selectedPoint,
   });
+
+  @override
+  State<WiFiSidePanel> createState() => _WiFiSidePanelState();
+}
+
+class _WiFiSidePanelState extends State<WiFiSidePanel> {
+  final ScrollController _scrollController = ScrollController();
+
+  /// Точка, для которой уже был выполнен скролл/показ карточки.
+  WiFiPoint? _lastSelected;
+
+  @override
+  void didUpdateWidget(WiFiSidePanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.selectedPoint != null && widget.selectedPoint != _lastSelected) {
+      _lastSelected = widget.selectedPoint;
+      WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToSelected());
+    }
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _scrollToSelected() {
+    if (!mounted || !_scrollController.hasClients) return;
+    final viewModel = context.read<MapViewModel>();
+    final point = widget.selectedPoint;
+    if (point == null) return;
+    final index = viewModel.points.indexWhere((p) => p == point);
+    if (index < 0) return;
+    final target =
+        (index * _kTileHeight).clamp(0.0, _scrollController.position.maxScrollExtent);
+    _scrollController.animateTo(
+      target,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOut,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -29,7 +75,6 @@ class WiFiSidePanel extends StatelessWidget {
           child: Column(
             children: [
               _buildSortRow(context, viewModel),
-              //const Divider(height: 1, thickness: 1),
 
               // Основной список точек или пустой экран
               Expanded(
@@ -40,22 +85,42 @@ class WiFiSidePanel extends StatelessWidget {
                       ? _buildEmptyState(context, viewModel)
                       : Scrollbar(
                           interactive: true,
+                          controller: _scrollController,
                           thickness: 6,
                           radius: const Radius.circular(12),
-                          child: ListView.builder(
-                            padding: EdgeInsets.zero,
-                            itemCount: viewModel.points.length,
-                            itemBuilder: (context, index) {
-                              final point = viewModel.points[index];
-                              return _buildPointTile(context, point, viewModel);
-                            },
-                          ),
+                          child: _buildPointList(context, viewModel),
                         ),
                 ),
               ),
             ],
           ),
         );
+      },
+    );
+  }
+
+  Widget _buildPointList(BuildContext context, MapViewModel viewModel) {
+    final point = widget.selectedPoint;
+    final selectedIndex =
+        point == null ? -1 : viewModel.points.indexWhere((p) => p == point);
+
+    return ListView.builder(
+      controller: _scrollController,
+      padding: EdgeInsets.zero,
+      itemCount: viewModel.points.length + (selectedIndex >= 0 ? 1 : 0),
+      itemBuilder: (context, index) {
+        if (selectedIndex >= 0 && index == selectedIndex + 1) {
+          return PointFeedbackBar(
+            key: ValueKey('feedback_${point!.id}'),
+            point: point,
+            viewModel: viewModel,
+          );
+        }
+        final pointIndex = (selectedIndex >= 0 && index > selectedIndex)
+            ? index - 1
+            : index;
+        final item = viewModel.points[pointIndex];
+        return _buildPointTile(context, item, viewModel);
       },
     );
   }
@@ -125,7 +190,7 @@ class WiFiSidePanel extends StatelessWidget {
 
   Widget _buildPointTile(
       BuildContext context, WiFiPoint point, MapViewModel viewModel) {
-    final isSelected = point == selectedPoint;
+    final isSelected = point == widget.selectedPoint;
     final theme = Theme.of(context);
 
     return ListTile(
@@ -161,29 +226,12 @@ class WiFiSidePanel extends StatelessWidget {
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),
-      trailing: PopupMenuButton<String>(
-        icon: const FaIcon(FontAwesomeIcons.chevronRight, size: 20),
-        itemBuilder: (_) => [
-          const PopupMenuItem(
-            value: 'verify',
-            child: Text('Верифицировать'),
-          ),
-        ],
-        onSelected: (value) async {
-          if (value == 'verify') {
-            final ok = await viewModel.verifyPoint(point);
-            if (!context.mounted) return;
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(ok
-                    ? 'Вы подключены к ${point.name} - точка верифицирована!'
-                    : 'Не удалось верифицировать: проверьте SSID и расстояние до точки.'),
-              ),
-            );
-          }
-        },
+      trailing: FaIcon(
+        FontAwesomeIcons.chevronRight,
+        size: 18,
+        color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
       ),
-      onTap: () => onPointTap(point),
+      onTap: () => widget.onPointTap(point),
     );
   }
 

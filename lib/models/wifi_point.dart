@@ -12,6 +12,12 @@ class WiFiPoint {
   final double lat;
   final double lng;
 
+  /// Регион точки (совпадает с region_id на бэкенде). 0 — «по умолчанию».
+  final int regionId;
+
+  /// Тип датасета (слой): public / volunteer_test / dev_test.
+  final String datasetType;
+
   const WiFiPoint({
     required this.id,
     required this.name,
@@ -19,6 +25,8 @@ class WiFiPoint {
     required this.rating,
     required this.lat,
     required this.lng,
+    this.regionId = 0,
+    this.datasetType = 'public',
   });
 
   LatLng get location => LatLng(lat, lng);
@@ -59,6 +67,17 @@ class WiFiPoint {
       throw const DataException('Поле "lng" должно быть числом.');
     }
 
+    // Новые поля опциональны для обратной совместимости со старыми JSON-файлами
+    final regionId = json['region_id'] ?? 0;
+    if (regionId is! num) {
+      throw const DataException('Поле "region_id" должно быть числом.');
+    }
+    final datasetType = json['dataset_type'] ?? 'public';
+    if (datasetType is! String || datasetType.isEmpty) {
+      throw const DataException(
+          'Поле "dataset_type" должно быть непустой строкой.');
+    }
+
     return WiFiPoint(
       id: id,
       name: name,
@@ -66,6 +85,8 @@ class WiFiPoint {
       rating: (rating).toDouble(),
       lat: (lat).toDouble(),
       lng: (lng).toDouble(),
+      regionId: (regionId).toInt(),
+      datasetType: datasetType,
     );
   }
 
@@ -76,6 +97,8 @@ class WiFiPoint {
         'rating': rating,
         'lat': lat,
         'lng': lng,
+        'region_id': regionId,
+        'dataset_type': datasetType,
       };
 
   static void _requireField(Map<String, dynamic> json, String field) {

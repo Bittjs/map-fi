@@ -10,6 +10,7 @@ import 'package:flutter_map_tile_caching/flutter_map_tile_caching.dart';
 import 'viewmodels/map_viewmodel.dart';
 import 'viewmodels/provider_viewmodel.dart';
 import 'viewmodels/preference_viewmodel.dart';
+import 'services/server_settings.dart';
 import './app_theme.dart';
 
 Future<void> main() async {
@@ -21,6 +22,9 @@ Future<void> main() async {
   } else {
     debugPrint('Запуск в Web - FMTC отключен');
   }
+
+  // Настройки сервера (сохранённый адрес бэкенда)
+  await ServerSettings.load();
 
   // Проверка онбординга
   final prefs = await SharedPreferences.getInstance();
